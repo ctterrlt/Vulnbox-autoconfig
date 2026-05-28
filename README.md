@@ -8,7 +8,7 @@ This project provides automated setup scripts and highly customized `.zshrc` pro
 * **Zero-Touch SSH Deployment:** Automatically generates an Ed25519 SSH key (if needed) and deploys it to your target, enabling immediate passwordless access.
 * **Pre-Loaded CTF Aliases:** Quick commands for active network sniffing (`sniff`), port checking (`listening`), and IP routing (`myip`).
 * **Tactical Tooling:** Built-in alias support for Docker (`dbuild`, `dlog`), Wireguard (`tunnel`), and OpenVPN.
-* **Visual & QoL Upgrades:** Pre-configured with Oh-My-Zsh, syntax highlighting, autosuggestions, Fastfetch, and a custom `Chry@Chry` terminal prompt.
+* **Visual & QoL Upgrades:** Pre-configured with Oh-My-Zsh, syntax highlighting, autosuggestions, Fastfetch, and a custom `USER@IP/DEVICE` terminal prompt.
 
 ---
 
