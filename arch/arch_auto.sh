@@ -4,6 +4,13 @@
 # RUN THIS ON YOUR LOCAL PC
 # ==============================================================================
 
+# Add this to the very top of your _auto.sh files
+if [ -f /.dockerenv ] || [ "$USER" == "root" ]; then
+    echo "WARNING: This script is intended to be run from your LOCAL PC, not the remote Vulnbox."
+    read -p "Are you sure you want to proceed? (y/N) " confirm
+    [[ $confirm != [yY] ]] && exit 1
+fi
+
 echo -e "\n===  ^=^n  TARGET CONFIGURATION ==="
 read -p "Enter target remote IP: " TARGET_IP
 read -p "Enter target remote username: " TARGET_USER
@@ -119,8 +126,26 @@ clear_msg() {
     echo "Terminal cleared. Ready to go."
 }
 
-source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null
-source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh 2>/dev/null
+# --- Robust Plugin Loading ---
+
+# 1. Syntax Highlighting
+for plugin in /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+              /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+    if [ -f "$plugin" ]; then
+        source "$plugin"
+        break
+    fi
+done
+
+# 2. Autosuggestions
+for plugin in /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+              /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh; do
+    if [ -f "$plugin" ]; then
+        source "$plugin"
+        break
+    fi
+done
+
 ZSHRC_EOF
 
 echo -e "\n===  ^=^t^q ENVIRONMENT DEPLOYED SUCCESSFULLY ==="
