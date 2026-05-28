@@ -1,12 +1,12 @@
-#ubuntu
+#debian_ubuntu
 sudo apt update && sudo apt install -y zip zsh git curl neofetch lsd tty-clock cmatrix zsh-syntax-highlighting zsh-autosuggestions openssh-client && sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && sudo chsh -s $(which zsh) $USER
 
 cat << 'EOF' > ~/.zshrc
-#config for ubuntu
+#config for debian_ubuntu
 
 # --- 1. PATH & ENVIRONMENT ---
 export PATH="/app/extra/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
-export DEBUGINFOD_URLS="https://debuginfod.ubuntu.com"
+export DEBUGINFOD_URLS="https://debuginfod.debian_ubuntu.com"
 export EDITOR="nano"
 export VISUAL="nano"
 export CLICOLOR=1
