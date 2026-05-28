@@ -1,43 +1,40 @@
-# 🎯 Debian/Ubuntu-Based Vulnbox AutoConfig
+k# 🐘 Debian/Ubuntu-Based Vulnbox AutoConfig
 
-This toolkit streamlines the setup of Debian/Ubuntu-based CTF Vulnboxes. Choose your deployment strategy based on whether you want a full-auto blast or specific control over the configuration.
+This module handles the automated deployment of Zsh and CTF tooling on Debian/Ubuntu targets. 
 
 ## 🚀 Deployment Methods
 
-### 1. Automatic Deployment (The All-in-One)
-Best for rapid deployment when you want to handle everything from your local machine. This will push keys, install packages, apply configs, and drop you into a fresh Zsh session.
+### 1. Master Deployment (Recommended)
+This is the fastest way to get set up. It uses the root `auto_deploy.sh` script to handle everything across any distribution.
 
-* **Where to run:** Your Local PC.
-* **Prerequisite (Set permissions):**
-    ```bash
-    chmod +x *.sh
-    ```
-* **Command:**
-    ```bash
-    ./debian_ubuntu_auto.sh
-    ```
+1. Navigate to the project root.
+2. Run `./auto_deploy.sh`.
+3. Select "Debian/Ubuntu" from the menu.
 
----
+### 2. Direct Deployment (Manual)
+If you are already inside the `debian_ubuntu/` folder and want to deploy **only** to a Debian/Ubuntu target, you can bypass the master menu.
 
-### 2. Manual Deployment (The Granular Way)
-Use this if you prefer to build the environment step-by-step or need to customize the installation on the fly. 
+**Prerequisites:**
+1. Ensure your `zsh.conf` is configured to your liking.
+2. Run `chmod +x debian_ubuntu_auto.sh`.
 
-To keep it simple, we use the `s` and `b` naming convention:
-* **`s` (Server / SSH Machine):** These are the scripts you execute **on the remote Vulnbox**.
-* **`b` (Base / Local Machine):** These are the scripts you run **on your local computer**.
+**Command:**
+```bash
+./debian_ubuntu_auto.sh
 
-#### Workflow:
-1.  **On the Vulnbox (`s`):**
-    * Make executable: `chmod +x zshinstall_debian_ubuntu.sh zshchangeconf_debian_ubuntu.sh`
-    * Execute `zshinstall_debian_ubuntu.sh` to get the base environment and Zsh.
-    * Execute `zshchangeconf_debian_ubuntu.sh` to apply the specific config.
+🛠 Configuration Management
 
-2.  **On your Own PC (`b`):**
-    * Make executable: `chmod +x sshconf.sh`
-    * Execute `sshconf.sh` to generate keys and handle the deployment to the target.
+We have moved away from hardcoded scripts. To customize your environment:
 
----
+    To change aliases, themes, or plugins: Simply edit debian_ubuntu/zsh.conf.
 
-## ⚠️ Critical Rule
-* **Always check your context:** Running a script labeled for `s` on your local machine might unintentionally change your local shell or overwrite your personal config. 
-* **Targeting:** Ensure you are targeting the Vulnbox's distribution. If the target is not Debian/Ubuntu-based, do not use these scripts; check the `arch` or `fedora` folders instead.
+    To change the install logic (e.g., adding a new package): Edit debian_ubuntu/debian_ubuntu_auto.sh.
+
+Your configuration is now decoupled from the deployment logic. Any changes made to zsh.conf are automatically pushed to the remote target during your next deployment.
+⚠️ Critical Rules
+
+    Local vs. Remote: Always run these scripts from your Local PC.
+
+    Standardization: Ensure you are using the correct zsh.conf for the target distro (e.g., do not copy Arch configs to a Debian box).
+
+    Permissions: Always check that scripts are executable (chmod +x *.sh) if you move them to a new machine.

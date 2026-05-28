@@ -1,51 +1,40 @@
-🎯 Arch-Based Vulnbox AutoConfig
+# 🐧 Arch-Based Vulnbox AutoConfig
 
-This toolkit streamlines the setup of Arch-based CTF Vulnboxes. Choose your deployment strategy based on whether you want a full-auto blast or specific control over the configuration.
-🚀 Deployment Methods
-1. Automatic Deployment (The All-in-One)
+This module handles the automated deployment of Zsh and CTF tooling on Arch Linux targets. 
 
-Best for rapid deployment when you want to handle everything from your local machine. This will push keys, install packages, apply configs, and drop you into a fresh Zsh session.
+## 🚀 Deployment Methods
 
-    Where to run: Your Local PC.
+### 1. Master Deployment (Recommended)
+This is the fastest way to get set up. It uses the root `auto_deploy.sh` script to handle everything across any distribution.
 
-    Prerequisite (Set permissions):
-    Bash
+1. Navigate to the project root.
+2. Run `./auto_deploy.sh`.
+3. Select "Arch" from the menu.
 
-    chmod +x *.sh
+### 2. Direct Deployment (Manual)
+If you are already inside the `arch/` folder and want to deploy **only** to an Arch target, you can bypass the master menu.
 
-    Command:
-    Bash
+**Prerequisites:**
+1. Ensure your `zsh.conf` is configured to your liking.
+2. Run `chmod +x arch_auto.sh`.
 
-    ./arch_auto.sh
+**Command:**
+```bash
+./arch_auto.sh
 
-2. Manual Deployment (The Granular Way)
+🛠 Configuration Management
 
-Use this if you prefer to build the environment step-by-step or need to customize the installation on the fly.
+We have moved away from hardcoded scripts. To customize your environment:
 
-To keep it simple, we use the s and b naming convention:
+    To change aliases, themes, or plugins: Simply edit arch/zsh.conf.
 
-    s (Server / SSH Machine): These are the scripts you execute on the remote Vulnbox.
+    To change the install logic (e.g., adding a new package): Edit arch/arch_auto.sh.
 
-    b (Base / Local Machine): These are the scripts you run on your local computer.
+Your configuration is now decoupled from the deployment logic. Any changes made to zsh.conf are automatically pushed to the remote target during your next deployment.
+⚠️ Critical Rules
 
-Workflow:
+    Local vs. Remote: Always run these scripts from your Local PC.
 
-    On the Vulnbox (s):
+    Standardization: Ensure you are using the correct zsh.conf for the target distro (e.g., do not copy Arch configs to a Debian box).
 
-        Make executable: chmod +x zshinstall_arch.sh zshchangeconf_arch.sh
-
-        Execute zshinstall_arch.sh to get the base environment and Zsh.
-
-        Execute zshchangeconf_arch.sh to apply the specific config.
-
-    On your Own PC (b):
-
-        Make executable: chmod +x sshconf.sh
-
-        Execute sshconf.sh to generate keys and handle the deployment to the target.
-
-⚠️ Critical Rule
-
-    Always check your context: Running a script labeled for s on your local machine might unintentionally change your local shell or overwrite your personal config.
-
-    Targeting: Ensure you are targeting the Vulnbox's distribution. If the target is not Arch-based, do not use these scripts; check the debian_ubuntu or fedora folders instead.
+    Permissions: Always check that scripts are executable (chmod +x *.sh) if you move them to a new machine.

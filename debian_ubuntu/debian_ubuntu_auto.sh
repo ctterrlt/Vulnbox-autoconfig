@@ -4,132 +4,61 @@
 # RUN THIS ON YOUR LOCAL PC
 # ==============================================================================
 
-# Add this to the very top of your _auto.sh files
+# Safety Guard: Check if we are running locally (not on a server/docker)
 if [ -f /.dockerenv ] || [ "$USER" == "root" ]; then
-    echo "WARNING: This script is intended to be run from your LOCAL PC, not the remote Vulnbox."
+    echo "WARNING: This script is intended to be run from your LOCAL PC."
     read -p "Are you sure you want to proceed? (y/N) " confirm
     [[ $confirm != [yY] ]] && exit 1
 fi
 
-echo -e "\n===  ^=^n  TARGET CONFIGURATION ==="
+echo -e "\n=== 🎯 TARGET CONFIGURATION ==="
 read -p "Enter target remote IP: " TARGET_IP
 read -p "Enter target remote username: " TARGET_USER
 
 # --- 1. SECURE ACCESS (SSH KEYS) ---
-echo -e "\n===  ^=^t^q 1. SECURING ACCESS ==="
+echo -e "\n=== 🔐 1. SECURING ACCESS ==="
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
     echo "Generating new passwordless SSH key..."
     ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
 fi
 
 echo "Copying key to target (You may need to type the password one last time)..."
-ssh-copy-id -i "${TARGET_USER}@${TARGET_IP}"
+ssh-copy-id -i "$HOME/.ssh/id_ed25519.pub" "${TARGET_USER}@${TARGET_IP}"
 
-# --- 2. GENERATE THE PAYLOAD LOCALLY ---
-echo -e "\n===  ^=^t^q 2. PREPARING PAYLOAD ==="
+# --- 2. UPLOAD CONFIG ---
+echo -e "\n=== 📤 2. UPLOADING CONFIG ==="
+if [ -f "zshconfig_debian_ubuntu.conf" ]; then
+    scp zshconfig_debian_ubuntu.conf "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
+else
+    echo "Error: zshconfig_debian_ubuntu.conf not found in the current directory!"
+    exit 1
+fi
+
+# --- 3. PREPARE PAYLOAD ---
+echo -e "\n=== 🚀 3. DEPLOYING PAYLOAD ==="
 cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload_deb.sh
 #!/bin/bash
+# This runs on the REMOTE machine
 
 # Update and Install Packages
-sudo apt update && sudo apt install -y zip zsh git curl neofetch lsd tty-clock cmatrix zsh-syntax-highlighting zsh-autosuggestions openssh-client
+sudo apt update && sudo apt install -y \
+    zip zsh git curl lsd tty-clock cmatrix openssh-client \
+    zsh-syntax-highlighting zsh-autosuggestions
 
 # Install Oh-My-Zsh (Unattended)
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
 
 # Change default shell
 sudo chsh -s $(which zsh) $USER
 
-# Write the Configuration
-cat << 'ZSHRC_EOF' > ~/.zshrc
-export PATH="/app/extra/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
-export EDITOR="nano"
-export VISUAL="nano"
-export CLICOLOR=1
-export LS_COLORS='di=0;36:fi=0;37:'
+# Apply the config
+mv /tmp/zshconfig_debian_ubuntu.conf ~/.zshrc
 
-export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME=""
-plugins=(git)
-source $ZSH/oh-my-zsh.sh
-
-PROMPT='%F{214}%n@%m%f %F{34}%~$%f %F{white}%D{%H:%M:%S}%f '
-
-setopt HIST_IGNORE_DUPS HIST_IGNORE_SPACE autocd correct
-
-
-alias neofetch="neofetch --color blue --logo-color-1 blue --logo-color-2 blue"
-alias zshrc="nano ~/.zshrc"
-alias zsh="source ~/.zshrc"
-alias lss="lsd -lah --group-directories-first --icon always --color always"
-alias ..="cd .."
-alias ...="cd ../.."
-alias pipinst='pip install --break-system-packages'
-alias explain=tldr
-
-# --- IDA Pro Bottle Launcher ---
-
-alias ida='flatpak run --command=bottles-cli com.usebottles.bottles run -b "IDA" -p "ida"'
-alias cdida='cd ~/.var/app/com.usebottles.bottles/data/bottles/bottles/IDA/drive_c/Program\ Files/IDA\ Professional\ 9.0/'
-
-# Tools & Fun
-alias cock='tty-clock -c -C 4 -r -f "%A, %B %d, %Y"'
-alias matrix="cmatrix -C blue"
-alias rick='echo -ne "\e[34m"; curl -s ascii.live/rick; echo -ne "\e[0m"'
-alias forrest='echo -ne "\e[34m"; curl -s ascii.live/forrest; echo -ne "\e[0m"'
-alias knot='echo -ne "\e[34m"; curl -s ascii.live/knot; echo -ne "\e[0m"'
-alias parrot='echo -ne "\e[34m"; curl -s ascii.live/parrot; echo -ne "\e[0m"'
-
-# AD-CTF Power Tools
-alias myip="ip -br addr"
-alias listening="ss -tulpn | grep LISTEN"
-alias sniff="sudo tcpdump -i any -A 'tcp port 80'"
-
-# WireGuard (Manual Selection)
-alias tunnel="sudo wg-quick up"
-alias untunnel="sudo wg-quick down"
-
-# openvpn
-alias vpnopen='sudo openvpn --daemon --config'
-alias vpnclose="sudo killall openvpn"
-
-# Docker
-alias dps="docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
-alias dlog="docker compose logs -f"
-alias dbuild="docker compose up -d --build"
-alias ddown="docker compose down"
-
-# --- 7. FUNCTIONS ---
-clear_msg() {
-    clear
-    echo "Terminal cleared. Ready to go, Chry."
-}
-
-# --- Robust Plugin Loading ---
-
-# 1. Syntax Highlighting
-for plugin in /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
-              /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
-    if [ -f "$plugin" ]; then
-        source "$plugin"
-        break
-    fi
-done
-
-# 2. Autosuggestions
-for plugin in /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
-              /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh; do
-    if [ -f "$plugin" ]; then
-        source "$plugin"
-        break
-    fi
-done
-
-ZSHRC_EOF
-
-echo -e "\n===  ^=^t^q DEBIAN/UBUNTU DEPLOYED SUCCESSFULLY ==="
+echo -e "\n=== ✅ DEBIAN/UBUNTU DEPLOYED SUCCESSFULLY ==="
 PAYLOAD_EOF
 
-# --- 3. SHIP IT AND RUN IT ---
-echo -e "\n===  ^=^t^q 3. DEPLOYING TO TARGET ==="
+# --- 4. SHIP IT AND RUN IT ---
 scp /tmp/vulnbox_payload_deb.sh "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 ssh -t "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh && exec zsh"

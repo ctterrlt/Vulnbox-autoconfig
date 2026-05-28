@@ -1,43 +1,83 @@
-# ⚡ Vulnbox-AutoConfig
+🚀 Vulnbox-AutoConfig
 
-A rapid-deployment Zsh configuration toolkit designed for Attack/Defense CTFs, remote server administration, and streamlined terminal environments.
+A unified, professional-grade deployment framework for Attack/Defense CTFs and remote administration. This toolkit transforms bare-bones remote shells into fully-equipped, custom-configured operator environments in seconds.
+🌟 Key Features
 
-This project provides automated setup scripts and highly customized `.zshrc` profiles for various Linux distributions. It instantly transforms a barebones remote shell into a fully equipped, passwordless, and visually clean operator environment.
+    Master Controller: One-click deployment from a central hub.
 
-## 🛠️ Key Features
-* **Zero-Touch SSH Deployment:** Automatically generates an Ed25519 SSH key (if needed) and deploys it to your target.
-* **Pre-Loaded CTF Aliases:** Quick commands for network sniffing (`sniff`), port checking (`listening`), and IP routing (`myip`).
-* **Tactical Tooling:** Built-in alias support for Docker (`dbuild`, `dlog`), Wireguard (`tunnel`), and OpenVPN.
-* **Visual & QoL Upgrades:** Pre-configured with Oh-My-Zsh, syntax highlighting, autosuggestions, Fastfetch, and a custom `USER@IP/DEVICE` terminal prompt.
+    Standardized Workflow: All distributions now use a single zsh.conf source-of-truth.
 
----
+    Zero-Touch SSH: Automatically handles SSH key generation and target authentication.
 
-## 🎯 Target Selection & Usage
+    CTF Ready: Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
 
-**Crucial Rule:** Always select the configuration folder that matches the Linux distribution of the **remote machine** you are connected to via SSH.
+    Visual & QoL: Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
 
-> **[!] For A/D CTF Players:** In a competitive environment, this remote machine is your **Vulnbox**. Do not use your local machine's OS; use the OS of the target.
+📂 Repository Structure
 
-### Supported Distributions
-* `arch/` - Arch Linux & derivatives
-* `fedora/` - Fedora & RHEL-based systems
-* `debian_ubuntu/` - Ubuntu & Debian-based systems
+The repository is organized by distribution. Each folder contains the specific automation logic for that OS, sharing a standardized configuration file.
+Plaintext
 
-## 🚀 Deployment Methods
+.
+├── auto_deploy.sh           # <-- Run this to start
+├── arch/
+│   ├── arch_auto.sh         # Deployment script
+│   └── zsh.conf             # Arch-specific config
+├── debian_ubuntu/
+│   ├── debian_ubuntu_auto.sh
+│   └── zsh.conf             # Debian-specific config
+└── fedora/
+    ├── fedora_auto.sh
+    └── zsh.conf             # Fedora-specific config
 
-### 1. Automatic Deployment (Recommended)
-Best for rapid deployment from your local machine. This pushes keys, installs packages, applies configs, and drops you into a fresh Zsh session.
-1. `cd` into your target folder (e.g., `cd debian_ubuntu`).
-2. Run `chmod +x *.sh` to set permissions.
-3. Run the auto-deploy script: `./<distro>_auto.sh`
+🚀 How to Deploy
+1. Initial Setup
 
-### 2. Manual Deployment (Granular Control)
-Use this for step-by-step builds:
-* **`s` scripts:** Execute these **on the remote Vulnbox**.
-* **`b` scripts:** Execute these **on your local computer**.
+Ensure all scripts are executable before running the master controller:
+Bash
 
----
+chmod +x auto_deploy.sh
+find . -name "*.sh" -exec chmod +x {} \;
 
-## ⚠️ Critical Rule
-* **Always check your context:** Running a script labeled for `s` (server) on your local machine might unintentionally change your local shell or overwrite your personal config.
-* **Permissions:** Always run `chmod +x *.sh` in the directory before attempting to execute scripts.
+2. Execution
+
+From the root directory, run the master script:
+Bash
+
+./auto_deploy.sh
+
+3. Usage
+
+    Select Target: Choose the distribution that matches your remote target (Arch, Debian/Ubuntu, or Fedora).
+
+    Authentication: Enter the remote IP and username.
+
+    Automation: The script will automatically:
+
+        Generate local SSH keys (if missing).
+
+        Upload the public key to the remote box.
+
+        Upload the zsh.conf file to the remote /tmp.
+
+        Execute the remote payload to install packages and apply the configuration.
+
+        Drop you into your new Zsh environment.
+
+💡 Maintenance
+
+To update your environment (e.g., changing an alias or adding a tool):
+
+    Navigate to the specific distro folder (e.g., cd arch/).
+
+    Edit the zsh.conf file.
+
+    That's it. The next time you run auto_deploy.sh, it will push the updated configuration automatically. You never need to touch the .sh script logic again.
+
+⚠️ Safety Warning
+
+    Local Execution: This tool is designed to be run from your Local PC, not on the target remote machine.
+
+    Safety Guards: Every script includes a check to ensure you aren't running it on a live production server or inside a docker container by accident. Always heed the "DANGER" warnings if they appear.
+
+Happy Hacking! 🛡️✨
