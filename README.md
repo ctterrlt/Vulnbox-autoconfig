@@ -29,6 +29,8 @@ The repository is organized by distribution. Each folder contains the specific a
     ├── fedora_auto.sh
     └── zsh.conf            # Fedora-specific config
 
+
+```
 🚀 How to Deploy
 1. Initial Setup
 
