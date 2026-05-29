@@ -1,40 +1,58 @@
 # 👒 Fedora-Based Vulnbox AutoConfig
 
-This module handles the automated deployment of Zsh and CTF tooling on Fedora/RHEL-based targets. 
+This module handles the automated deployment of Zsh and CTF tooling on Fedora/RHEL-based targets.
 
 ## 🚀 Deployment Methods
 
 ### 1. Master Deployment (Recommended)
-This is the fastest way to get set up. It uses the root `auto_deploy.sh` script to handle everything across any distribution.
+
+This is the fastest way to get set up. It uses the root `auto.sh` script to handle everything across any distribution.
 
 1. Navigate to the project root.
-2. Run `./auto_deploy.sh`.
-3. Select "Fedora" from the menu.
+2. Run `./auto.sh`.
+3. Select **Fedora** from the menu.
 
 ### 2. Direct Deployment (Manual)
+
 If you are already inside the `fedora/` folder and want to deploy **only** to a Fedora target, you can bypass the master menu.
 
 **Prerequisites:**
-1. Ensure your `zsh.conf` is configured to your liking.
-2. Run `chmod +x fedora_auto.sh`.
+
+1. Ensure `zshconfig_fedora.conf` is configured to your liking.
+2. Make the script executable: `chmod +x fedora_auto.sh`
 
 **Command:**
+
 ```bash
 ./fedora_auto.sh
+```
 
-🛠 Configuration Management
+---
 
-We have moved away from hardcoded scripts. To customize your environment:
+## 🔄 Re-pushing Config Only
 
-    To change aliases, themes, or plugins: Simply edit fedora/zsh.conf.
+If you only changed `zshconfig_fedora.conf` and don't need a full redeployment, use:
 
-    To change the install logic (e.g., adding a new package): Edit fedora/fedora_auto.sh.
+```bash
+./zshchangeconf_fedora.sh
+```
 
-Your configuration is now decoupled from the deployment logic. Any changes made to zsh.conf are automatically pushed to the remote target during your next deployment.
-⚠️ Critical Rules
+This uploads the config and applies it to `~/.zshrc` on the remote target without reinstalling packages.
 
-    Local vs. Remote: Always run these scripts from your Local PC.
+---
 
-    Standardization: Ensure you are using the correct zsh.conf for the target distro (e.g., do not copy Fedora configs to an Arch box).
+## 🛠 Configuration Management
 
-    Permissions: Always check that scripts are executable (chmod +x *.sh) if you move them to a new machine.
+- To change aliases, themes, or plugins: edit `fedora/zshconfig_fedora.conf`.
+- To change install logic (e.g. adding a package): edit `fedora/fedora_auto.sh`.
+
+Your configuration is decoupled from the deployment logic. Any changes to `zshconfig_fedora.conf` are automatically pushed to the remote target on the next deployment.
+
+---
+
+## ⚠️ Critical Rules
+
+- **Local vs. Remote:** Always run these scripts from your **Local PC**.
+- **Standardization:** Use the correct config for the target distro — do not copy Fedora configs to an Arch or Debian/Ubuntu box.
+- **Permissions:** If you move scripts to a new machine, make them executable again: `chmod +x *.sh`
+- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` may not be in the default Fedora repos. If the install fails, enable RPM Fusion or install them manually before running the script.

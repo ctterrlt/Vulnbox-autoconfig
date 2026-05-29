@@ -1,40 +1,58 @@
-k# 🐘 Debian/Ubuntu-Based Vulnbox AutoConfig
+# 🐘 Debian/Ubuntu-Based Vulnbox AutoConfig
 
-This module handles the automated deployment of Zsh and CTF tooling on Debian/Ubuntu targets. 
+This module handles the automated deployment of Zsh and CTF tooling on Debian/Ubuntu targets.
 
 ## 🚀 Deployment Methods
 
 ### 1. Master Deployment (Recommended)
-This is the fastest way to get set up. It uses the root `auto_deploy.sh` script to handle everything across any distribution.
+
+This is the fastest way to get set up. It uses the root `auto.sh` script to handle everything across any distribution.
 
 1. Navigate to the project root.
-2. Run `./auto_deploy.sh`.
-3. Select "Debian/Ubuntu" from the menu.
+2. Run `./auto.sh`.
+3. Select **Debian/Ubuntu** from the menu.
 
 ### 2. Direct Deployment (Manual)
+
 If you are already inside the `debian_ubuntu/` folder and want to deploy **only** to a Debian/Ubuntu target, you can bypass the master menu.
 
 **Prerequisites:**
-1. Ensure your `zsh.conf` is configured to your liking.
-2. Run `chmod +x debian_ubuntu_auto.sh`.
+
+1. Ensure `zshconfig_debian_ubuntu.conf` is configured to your liking.
+2. Make the script executable: `chmod +x debian_ubuntu_auto.sh`
 
 **Command:**
+
 ```bash
 ./debian_ubuntu_auto.sh
+```
 
-🛠 Configuration Management
+---
 
-We have moved away from hardcoded scripts. To customize your environment:
+## 🔄 Re-pushing Config Only
 
-    To change aliases, themes, or plugins: Simply edit debian_ubuntu/zsh.conf.
+If you only changed `zshconfig_debian_ubuntu.conf` and don't need a full redeployment, use:
 
-    To change the install logic (e.g., adding a new package): Edit debian_ubuntu/debian_ubuntu_auto.sh.
+```bash
+./zshchangeconf_debian_ubuntu.sh
+```
 
-Your configuration is now decoupled from the deployment logic. Any changes made to zsh.conf are automatically pushed to the remote target during your next deployment.
-⚠️ Critical Rules
+This uploads the config and applies it to `~/.zshrc` on the remote target without reinstalling packages.
 
-    Local vs. Remote: Always run these scripts from your Local PC.
+---
 
-    Standardization: Ensure you are using the correct zsh.conf for the target distro (e.g., do not copy Arch configs to a Debian box).
+## 🛠 Configuration Management
 
-    Permissions: Always check that scripts are executable (chmod +x *.sh) if you move them to a new machine.
+- To change aliases, themes, or plugins: edit `debian_ubuntu/zshconfig_debian_ubuntu.conf`.
+- To change install logic (e.g. adding a package): edit `debian_ubuntu/debian_ubuntu_auto.sh`.
+
+Your configuration is decoupled from the deployment logic. Any changes to `zshconfig_debian_ubuntu.conf` are automatically pushed to the remote target on the next deployment.
+
+---
+
+## ⚠️ Critical Rules
+
+- **Local vs. Remote:** Always run these scripts from your **Local PC**.
+- **Standardization:** Use the correct config for the target distro — do not copy Debian/Ubuntu configs to an Arch or Fedora box.
+- **Permissions:** If you move scripts to a new machine, make them executable again: `chmod +x *.sh`
+- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` are not in the default `apt` repos. If the install fails, add their PPAs or install them manually before running the script.
