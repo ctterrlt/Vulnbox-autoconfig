@@ -57,7 +57,7 @@ set -euo pipefail
 # via Oh-My-Zsh plugins on Fedora — the conf handles this already.
 sudo dnf install -y \
     zip zsh nano git curl \
-    fastfetch lsd tty-clock cmatrix \
+    neofetch lsd tty-clock cmatrix \
     openssh-server
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)

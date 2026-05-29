@@ -53,7 +53,7 @@ set -euo pipefail
 # Add their PPAs or install manually if apt fails to find them.
 sudo apt update && sudo apt install -y \
     zip zsh nano git curl \
-    fastfetch lsd tty-clock cmatrix \
+    neofetch lsd tty-clock cmatrix \
     zsh-syntax-highlighting zsh-autosuggestions \
     openssh-server
 
