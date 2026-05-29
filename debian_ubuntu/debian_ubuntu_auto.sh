@@ -4,6 +4,12 @@
 # RUN THIS ON YOUR LOCAL PC
 # ==============================================================================
 
+# Get the absolute directory of the script
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Use this path for SCP
+scp "$DIR/zsh.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
+
 # Safety Guard: Check if we are running locally (not on a server/docker)
 if [ -f /.dockerenv ] || [ "$USER" == "root" ]; then
     echo "WARNING: This script is intended to be run from your LOCAL PC."

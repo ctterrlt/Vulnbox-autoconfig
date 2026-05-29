@@ -1,34 +1,33 @@
-🚀 Vulnbox-AutoConfig
+# 🚀 Vulnbox-AutoConfig
 
 A unified, professional-grade deployment framework for Attack/Defense CTFs and remote administration. This toolkit transforms bare-bones remote shells into fully-equipped, custom-configured operator environments in seconds.
-🌟 Key Features
 
-    Master Controller: One-click deployment from a central hub.
+## 🌟 Key Features
 
-    Standardized Workflow: All distributions now use a single zsh.conf source-of-truth.
+* **Master Controller:** One-click deployment from a central hub.
+* **Standardized Workflow:** All distributions use a single `zsh.conf` source-of-truth.
+* **Zero-Touch SSH:** Automatically handles SSH key generation and target authentication.
+* **CTF Ready:** Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
+* **Visual & QoL:** Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
 
-    Zero-Touch SSH: Automatically handles SSH key generation and target authentication.
+---
 
-    CTF Ready: Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
-
-    Visual & QoL: Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
-
-📂 Repository Structure
+## 📂 Repository Structure
 
 The repository is organized by distribution. Each folder contains the specific automation logic for that OS, sharing a standardized configuration file.
-Plaintext
 
+```text
 .
-├── auto_deploy.sh           # <-- Run this to start
+├── auto_deploy.sh          # <-- Run this to start
 ├── arch/
-│   ├── arch_auto.sh         # Deployment script
-│   └── zsh.conf             # Arch-specific config
+│   ├── arch_auto.sh        # Deployment script
+│   └── zsh.conf            # Arch-specific config
 ├── debian_ubuntu/
 │   ├── debian_ubuntu_auto.sh
-│   └── zsh.conf             # Debian-specific config
+│   └── zsh.conf            # Debian/Ubuntu-specific config
 └── fedora/
     ├── fedora_auto.sh
-    └── zsh.conf             # Fedora-specific config
+    └── zsh.conf            # Fedora-specific config
 
 🚀 How to Deploy
 1. Initial Setup
@@ -46,7 +45,7 @@ Bash
 
 ./auto_deploy.sh
 
-3. Usage
+3. Usage Steps
 
     Select Target: Choose the distribution that matches your remote target (Arch, Debian/Ubuntu, or Fedora).
 
@@ -76,8 +75,8 @@ To update your environment (e.g., changing an alias or adding a tool):
 
 ⚠️ Safety Warning
 
-    Local Execution: This tool is designed to be run from your Local PC, not on the target remote machine.
+    Local Execution Only: This tool is designed to be run from your Local PC, not on the target remote machine.
 
     Safety Guards: Every script includes a check to ensure you aren't running it on a live production server or inside a docker container by accident. Always heed the "DANGER" warnings if they appear.
 
-Happy Hacking! 🛡️✨
+Happy Hacking! 🛡✨
