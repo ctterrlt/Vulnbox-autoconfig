@@ -9,6 +9,7 @@ A unified, professional-grade deployment framework for Attack/Defense CTFs and r
 * **Zero-Touch SSH:** Automatically handles SSH key generation and target authentication.
 * **CTF Ready:** Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
 * **Visual & QoL:** Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
+* **Automatic Backup:** Automatically zips everything on the vulnbox
 
 ---
 
