@@ -1,17 +1,18 @@
+#!/bin/bash
 # standard one-liner to use later
-echo -e "\n===  ^=^l^p LOCAL NETWORK INTERFACES ==="
+echo -e "\n=== LOCAL NETWORK INTERFACES ==="
 ip -br addr
 
-echo -e "\n===  ^=^n  TARGET CONFIGURATION ==="
+echo -e "\n=== TARGET CONFIGURATION ==="
 echo -n "Enter target remote IP (or press Enter to skip): "
-read TARGET_IP
+read -r TARGET_IP
 
 if [ -n "$TARGET_IP" ]; then
     echo -n "Enter target remote username: "
-    read TARGET_USER
+    read -r TARGET_USER
 
-    echo -e "\n===  ^=^t^q DEPLOYING SSH KEY ==="
-    
+    echo -e "\n=== DEPLOYING SSH KEY ==="
+
     # 1. Check if the key already exists to prevent overwriting
     if [ -f "$HOME/.ssh/id_ed25519" ]; then
         echo "Existing SSH key found at ~/.ssh/id_ed25519. Skipping generation."
