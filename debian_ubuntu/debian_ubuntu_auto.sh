@@ -19,8 +19,25 @@ ip -br addr
 echo -e "\n=== TARGET CONFIGURATION ==="
 read -rp "Enter target remote IP: " TARGET_IP
 read -rp "Enter target remote username: " TARGET_USER
+read -rp "Enter target SSH port [22]: " TARGET_PORT
+TARGET_PORT=${TARGET_PORT:-22}
+read -rp "Enter a name for this host in ~/.ssh/config [${TARGET_IP}]: " HOST_ALIAS
+HOST_ALIAS=${HOST_ALIAS:-$TARGET_IP}
 
-# ── 3. SECURE ACCESS ──────────────────────────────────────────────────────────
+# ── 3. UPDATE LOCAL SSH CONFIG ────────────────────────────────────────────────
+echo -e "\n=== SSH CONFIG ==="
+mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+SSH_CONF="$HOME/.ssh/config"
+touch "$SSH_CONF"
+if ! grep -q "^Host ${HOST_ALIAS}$" "$SSH_CONF" 2>/dev/null; then
+    printf '\nHost %s\n    HostName %s\n    User %s\n    Port %s\n    IdentityFile ~/.ssh/id_ed25519\n' \
+        "$HOST_ALIAS" "$TARGET_IP" "$TARGET_USER" "$TARGET_PORT" >> "$SSH_CONF"
+    echo "[OK] Added '${HOST_ALIAS}' -> ${TARGET_IP} to ~/.ssh/config"
+else
+    echo "[OK] '${HOST_ALIAS}' already in ~/.ssh/config — skipping."
+fi
+
+# ── 4. SECURE ACCESS ──────────────────────────────────────────────────────────
 echo -e "\n=== 1. SECURING ACCESS ==="
 
 # Generate key only if missing
@@ -33,9 +50,9 @@ fi
 
 # Copy key — skip if already accepted, fall back to manual method if needed
 echo "Copying key to ${TARGET_USER}@${TARGET_IP}..."
-if ! ssh -o BatchMode=yes -o ConnectTimeout=3 "${TARGET_USER}@${TARGET_IP}" true 2>/dev/null; then
-    ssh-copy-id -i "$HOME/.ssh/id_ed25519.pub" "${TARGET_USER}@${TARGET_IP}" || \
-    cat "$HOME/.ssh/id_ed25519.pub" | ssh "${TARGET_USER}@${TARGET_IP}" \
+if ! ssh -p "$TARGET_PORT" -o BatchMode=yes -o ConnectTimeout=3 "${TARGET_USER}@${TARGET_IP}" true 2>/dev/null; then
+    ssh-copy-id -p "$TARGET_PORT" -i "$HOME/.ssh/id_ed25519.pub" "${TARGET_USER}@${TARGET_IP}" || \
+    cat "$HOME/.ssh/id_ed25519.pub" | ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
         "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 else
     echo "Key already accepted. Skipping ssh-copy-id."
@@ -76,14 +93,14 @@ echo "Deployment complete."
 PAYLOAD_EOF
 
 # ── 5. TRANSFER & EXECUTE ─────────────────────────────────────────────────────
-scp "$DIR/zshconfig_debian_ubuntu.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
-scp /tmp/vulnbox_payload.sh             "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
+scp -P "$TARGET_PORT" "$DIR/zshconfig_debian_ubuntu.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
+scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh             "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
 echo "Running remote setup..."
-ssh "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh"
+ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 echo "Pulling backup to local machine..."
-scp "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
+scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
 
 echo "Deployment complete. Logging you in..."
-ssh -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
