@@ -1,3 +1,25 @@
 #!/bin/bash
-#arch
-yay -Syu --noconfirm --needed zip zsh nano git curl fastfetch lsd tty-clock cmatrix zsh-syntax-highlighting zsh-autosuggestions openssh && sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && sudo chsh -s $(which zsh) $USER && exec zsh
+set -euo pipefail
+
+# Bootstrap yay if not present
+if ! command -v yay &>/dev/null; then
+    sudo pacman -Sy --noconfirm --needed base-devel git
+    tmpdir=$(mktemp -d)
+    git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
+    if [[ $EUID -eq 0 ]]; then
+        useradd -M -s /bin/bash _aurbuild 2>/dev/null || true
+        chown -R _aurbuild: "$tmpdir/yay"
+        echo "_aurbuild ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/_aurbuild
+        sudo -u _aurbuild bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
+        rm -f /etc/sudoers.d/_aurbuild
+        userdel _aurbuild 2>/dev/null || true
+    else
+        (cd "$tmpdir/yay" && makepkg -si --noconfirm)
+    fi
+    rm -rf "$tmpdir"
+fi
+
+yay -Syu --noconfirm --needed zip zsh nano git curl fastfetch lsd tty-clock cmatrix zsh-syntax-highlighting zsh-autosuggestions openssh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+sudo chsh -s "$(which zsh)" "$USER"
+exec zsh
