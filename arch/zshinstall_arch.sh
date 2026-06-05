@@ -1,4 +1,6 @@
 #!/bin/bash
+# Standalone manual install — runs ON the target box.
+# Keep package list aligned with arch_auto.sh payload.
 set -euo pipefail
 
 # Bootstrap yay if not present
