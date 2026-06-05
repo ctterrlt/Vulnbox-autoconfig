@@ -20,7 +20,6 @@ fi
 find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \;
 
 # ── Global Git Configuration Setup ────────────────────────────────────────────
-# ── Global Git Configuration Setup ────────────────────────────────────────────
 
 echo ""
 echo "========================================"
