@@ -5,7 +5,8 @@ A unified, professional-grade deployment framework for Attack/Defense CTFs and r
 ## 🌟 Key Features
 
 - **Master Controller:** One-click deployment from a central hub.
-- **Standardized Workflow:** All distributions use a single `zsh.conf` source-of-truth.
+- **Standardized Workflow:** All distributions use a single `zshconfig` source-of-truth.
+- **Global Git Configuration:** Automatically links a shared repository of Git aliases and visual tweaks, prompting for identity setup if needed, without destroying existing configurations.
 - **Zero-Touch SSH:** Automatically handles SSH key generation and target authentication.
 - **CTF Ready:** Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
 - **Visual & QoL:** Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
@@ -19,16 +20,20 @@ The repository is organized by distribution. Each folder contains the specific a
 
 ```text
 .
-├── auto.sh                 # <-- Run this to start
+├── auto.sh                       # <-- Run this to start
+├── gitconfig.conf                # Shared Git aliases and core settings
 ├── arch/
-│   ├── arch_auto.sh        # Deployment script
-│   └── zsh.conf            # Arch-specific config
+│   ├── arch_auto.sh              # Deployment script
+│   ├── zshchangeconf_arch.sh     # Re-push config only (no full redeploy)
+│   └── zshconfig_arch.conf       # Arch-specific zsh config
 ├── debian_ubuntu/
 │   ├── debian_ubuntu_auto.sh
-│   └── zsh.conf            # Debian/Ubuntu-specific config
+│   ├── zshchangeconf_debian_ubuntu.sh
+│   └── zshconfig_debian_ubuntu.conf
 └── fedora/
     ├── fedora_auto.sh
-    └── zsh.conf            # Fedora-specific config
+    ├── zshchangeconf_fedora.sh
+    └── zshconfig_fedora.conf
 ```
 
 ---
@@ -54,12 +59,13 @@ From the repo root directory, run the master script:
 
 ### 3. Usage Steps
 
-1. **Select Target:** Choose the distribution that matches your remote target (Arch, Debian/Ubuntu, or Fedora).
-2. **Authentication:** Enter the remote IP and username.
-3. **Automation:** The script will automatically:
+1. **Git Setup:** Upon first run, the master script will link your `gitconfig.conf` aliases and prompt you for your Git `user.name` and `user.email` if they aren't already set on your local machine.
+2. **Select Target:** Choose the distribution that matches your remote target (Arch, Debian/Ubuntu, or Fedora).
+3. **Authentication:** Enter the remote IP and username.
+4. **Automation:** The script will automatically:
    - Generate local SSH keys (if missing).
    - Upload the public key to the remote box.
-   - Upload the `zsh.conf` file to the remote `/tmp`.
+   - Upload the zsh config file to the remote `/tmp`.
    - Execute the remote payload to install packages and apply the configuration.
    - Drop you into your new Zsh environment.
 
@@ -69,9 +75,9 @@ From the repo root directory, run the master script:
 
 To update your environment (e.g., changing an alias or adding a tool):
 
-1. Navigate to the specific distro folder (e.g., `cd arch/`).
-2. Edit the `zsh.conf` file.
-3. That's it. The next time you run `./auto.sh`, it will push the updated configuration automatically. You never need to touch the `.sh` script logic again.
+1. **For Shell Aliases:** Navigate to the specific distro folder (e.g., `cd arch/`) and edit the `zshconfig_arch.conf` file.
+2. **For Git Aliases:** Edit the global `gitconfig.conf` file in the root directory.
+3. **That's it.** The next time you run `./auto.sh`, it will push the updated configurations automatically. You never need to touch the `.sh` script logic again.
 
 ---
 
