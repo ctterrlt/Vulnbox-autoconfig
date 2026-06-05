@@ -8,6 +8,8 @@ A unified, professional-grade deployment framework for Attack/Defense CTFs and r
 - **Standardized Workflow:** All distributions use a single `zshconfig` source-of-truth.
 - **Global Git Configuration:** Automatically links a shared repository of Git aliases and visual tweaks, prompting for identity setup if needed, without destroying existing configurations.
 - **Zero-Touch SSH:** Automatically handles SSH key generation and target authentication.
+- **Custom Port Support:** Prompts for the target SSH port (defaults to 22 if left empty).
+- **Auto SSH Config:** Writes a `~/.ssh/config` entry for each target so you can `ssh <alias>` after deployment without remembering IPs or ports.
 - **CTF Ready:** Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
 - **Visual & QoL:** Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
 - **Automatic Backup:** Automatically zips everything on the vulnbox.
@@ -61,8 +63,9 @@ From the repo root directory, run the master script:
 
 1. **Git Setup:** Upon first run, the master script will link your `gitconfig.conf` aliases and prompt you for your Git `user.name` and `user.email` if they aren't already set on your local machine.
 2. **Select Target:** Choose the distribution that matches your remote target (Arch, Debian/Ubuntu, or Fedora).
-3. **Authentication:** Enter the remote IP and username.
+3. **Authentication:** Enter the remote IP, username, SSH port (leave blank for 22), and an optional friendly alias for the host.
 4. **Automation:** The script will automatically:
+   - Add a `~/.ssh/config` entry for the target (alias, IP, port, identity file) so you can reconnect later with just `ssh <alias>`.
    - Generate local SSH keys (if missing).
    - Upload the public key to the remote box.
    - Upload the zsh config file to the remote `/tmp`.

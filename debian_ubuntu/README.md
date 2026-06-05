@@ -50,6 +50,27 @@ Your configuration is decoupled from the deployment logic. Any changes to `zshco
 
 ---
 
+## 🔌 Port & SSH Config
+
+The script prompts for four connection parameters:
+
+| Prompt | Default | Notes |
+|---|---|---|
+| Target IP | — | Required |
+| Username | — | Required |
+| SSH Port | `22` | Leave blank to use the default |
+| Host alias | IP address | Friendly name used in `~/.ssh/config` (e.g. `vulnbox`) |
+
+After deployment you can reconnect with just:
+
+```bash
+ssh vulnbox
+```
+
+The `~/.ssh/config` entry is written once and never overwritten on subsequent runs.
+
+---
+
 ## ⚠️ Critical Rules
 
 - **Local vs. Remote:** Always run these scripts from your **Local PC**.
