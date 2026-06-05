@@ -12,53 +12,10 @@ if [ -f /.dockerenv ] || grep -qE '(docker|containerd|lxc)' /proc/1/cgroup 2>/de
     [[ $confirm != [yY] ]] && exit 1
 fi
 
-# ── 2. INPUT ──────────────────────────────────────────────────────────────────
-echo -e "\n=== LOCAL NETWORK INTERFACES ==="
-ip -br addr
+# ── 2-4. SSH SETUP ────────────────────────────────────────────────────────────
+. "$DIR/../sshconf.sh"
 
-echo -e "\n=== TARGET CONFIGURATION ==="
-read -rp "Enter target remote IP: " TARGET_IP
-read -rp "Enter target remote username: " TARGET_USER
-read -rp "Enter target SSH port [22]: " TARGET_PORT
-TARGET_PORT=${TARGET_PORT:-22}
-read -rp "Enter a name for this host in ~/.ssh/config [${TARGET_IP}]: " HOST_ALIAS
-HOST_ALIAS=${HOST_ALIAS:-$TARGET_IP}
-
-# ── 3. UPDATE LOCAL SSH CONFIG ────────────────────────────────────────────────
-echo -e "\n=== SSH CONFIG ==="
-mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
-SSH_CONF="$HOME/.ssh/config"
-touch "$SSH_CONF"
-if ! grep -q "^Host ${HOST_ALIAS}$" "$SSH_CONF" 2>/dev/null; then
-    printf '\nHost %s\n    HostName %s\n    User %s\n    Port %s\n    IdentityFile ~/.ssh/id_ed25519\n' \
-        "$HOST_ALIAS" "$TARGET_IP" "$TARGET_USER" "$TARGET_PORT" >> "$SSH_CONF"
-    echo "[OK] Added '${HOST_ALIAS}' -> ${TARGET_IP} to ~/.ssh/config"
-else
-    echo "[OK] '${HOST_ALIAS}' already in ~/.ssh/config — skipping."
-fi
-
-# ── 4. SECURE ACCESS ──────────────────────────────────────────────────────────
-echo -e "\n=== 1. SECURING ACCESS ==="
-
-# Generate key only if missing
-if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
-    echo "No SSH key found. Generating a new passwordless Ed25519 key..."
-    ssh-keygen -t ed25519 -N "" -f "$HOME/.ssh/id_ed25519"
-else
-    echo "Existing SSH key found at ~/.ssh/id_ed25519. Skipping generation."
-fi
-
-# Copy key — fall back to manual method if ssh-copy-id fails (e.g. no sshpass)
-echo "Copying key to ${TARGET_USER}@${TARGET_IP}..."
-if ! ssh -p "$TARGET_PORT" -o BatchMode=yes -o ConnectTimeout=3 "${TARGET_USER}@${TARGET_IP}" true 2>/dev/null; then
-    ssh-copy-id -p "$TARGET_PORT" -i "$HOME/.ssh/id_ed25519.pub" "${TARGET_USER}@${TARGET_IP}" || \
-    cat "$HOME/.ssh/id_ed25519.pub" | ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
-        "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-else
-    echo "Key already accepted. Skipping ssh-copy-id."
-fi
-
-# ── 4. GENERATE PAYLOAD ───────────────────────────────────────────────────────
+# ── 5. GENERATE PAYLOAD ───────────────────────────────────────────────────────
 echo -e "\n=== 2. DEPLOYING PAYLOAD ==="
 
 cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload.sh
@@ -110,11 +67,11 @@ PAYLOAD_EOF
 scp -P "$TARGET_PORT" "$DIR/zshconfig_arch.conf"  "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_arch.conf"
 scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh     "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
-echo "Running remote setup..."
+echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh"
 
-echo "Pulling backup to local machine..."
+echo -e "\n=== 4. PULLING BACKUP ==="
 scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
 
-echo "Deployment complete. Logging you in..."
+echo -e "\n=== 5. LOGGING IN ==="
 ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
