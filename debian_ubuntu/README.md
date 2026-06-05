@@ -45,6 +45,7 @@ This uploads the config and applies it to `~/.zshrc` on the remote target withou
 
 - To change aliases, themes, or plugins: edit `debian_ubuntu/zshconfig_debian_ubuntu.conf`.
 - To change install logic (e.g. adding a package): edit `debian_ubuntu/debian_ubuntu_auto.sh`.
+- To change SSH setup (prompts, key gen, key copy, `~/.ssh/config`): edit the root `sshconf.sh` — shared across all distros.
 
 Your configuration is decoupled from the deployment logic. Any changes to `zshconfig_debian_ubuntu.conf` are automatically pushed to the remote target on the next deployment.
 
@@ -68,6 +69,12 @@ ssh vulnbox
 ```
 
 The `~/.ssh/config` entry is written once and never overwritten on subsequent runs.
+
+If your key is already deployed, skip key-gen and key-copy with:
+
+```bash
+SKIP_SSH=1 ./debian_ubuntu_auto.sh
+```
 
 ---
 

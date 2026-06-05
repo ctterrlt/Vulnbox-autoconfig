@@ -24,6 +24,7 @@ The repository is organized by distribution. Each folder contains the specific a
 .
 ├── auto.sh                       # <-- Run this to start
 ├── gitconfig.conf                # Shared Git aliases and core settings
+├── sshconf.sh                    # Shared SSH setup (prompts, ~/.ssh/config, key gen/copy)
 ├── arch/
 │   ├── arch_auto.sh              # Deployment script
 │   ├── zshchangeconf_arch.sh     # Re-push config only (no full redeploy)
@@ -72,6 +73,8 @@ From the repo root directory, run the master script:
    - Execute the remote payload to install packages and apply the configuration.
    - Drop you into your new Zsh environment.
 
+> **Tip:** If your SSH key is already deployed on the target, you can skip the key-gen and key-copy step by running `SKIP_SSH=1 ./auto.sh`. The IP/user/port prompts still run — they're needed for the rest of the deploy.
+
 ---
 
 ## 💡 Maintenance
@@ -80,7 +83,8 @@ To update your environment (e.g., changing an alias or adding a tool):
 
 1. **For Shell Aliases:** Navigate to the specific distro folder (e.g., `cd arch/`) and edit the `zshconfig_arch.conf` file.
 2. **For Git Aliases:** Edit the global `gitconfig.conf` file in the root directory.
-3. **That's it.** The next time you run `./auto.sh`, it will push the updated configurations automatically. You never need to touch the `.sh` script logic again.
+3. **For SSH Setup** (key generation, key copy, `~/.ssh/config` entry): edit the single root `sshconf.sh` — all distros share it.
+4. **That's it.** The next time you run `./auto.sh`, it will push the updated configurations automatically. You never need to touch the deploy script logic again.
 
 ---
 
