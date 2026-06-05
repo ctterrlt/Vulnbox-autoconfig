@@ -19,8 +19,53 @@ fi
 # ── Ensure all scripts are executable ─────────────────────────────────────────
 find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \;
 
+# ── Global Git Configuration Setup ────────────────────────────────────────────
+# ── Global Git Configuration Setup ────────────────────────────────────────────
+
+echo ""
 echo "========================================"
-echo "   VULNBOX MASTER DEPLOYMENT CENTER     "
+echo "       GIT CONFIGURATION SETUP          "
+echo "========================================"
+
+GIT_CONF_SRC="$SCRIPT_DIR/gitconfig.conf"
+if [[ -f "$GIT_CONF_SRC" ]]; then
+    # '|| true' prevents set -e from exiting if no include.path is configured yet
+    CURRENT_INCLUDES=$(git config --global --get-all include.path 2>/dev/null || true)
+
+    if [[ "$CURRENT_INCLUDES" == *"$GIT_CONF_SRC"* ]]; then
+        echo "[OK] Git aliases are already linked."
+    else
+        read -r -p "Link Vulnbox Git aliases to your ~/.gitconfig? (y/N) " link_aliases
+        if [[ "$link_aliases" == [yY] ]]; then
+            git config --global --add include.path "$GIT_CONF_SRC"
+            echo "[SUCCESS] Linked Git aliases to your ~/.gitconfig."
+        else
+            echo "[SKIPPED] Git aliases not linked."
+        fi
+    fi
+
+    # Prompt for user.name only if unset — optional, user can skip
+    if ! git config --global user.name >/dev/null 2>&1; then
+        echo ""
+        read -r -p "Git user.name is not set. Enter your name (or press Enter to skip): " git_name
+        [[ -n "$git_name" ]] && git config --global user.name "$git_name"
+    fi
+
+    # Prompt for user.email only if unset — optional, user can skip
+    if ! git config --global user.email >/dev/null 2>&1; then
+        read -r -p "Git user.email is not set. Enter your email (or press Enter to skip): " git_email
+        [[ -n "$git_email" ]] && git config --global user.email "$git_email"
+    fi
+    echo ""
+else
+    echo "[WARNING] gitconfig.conf not found in $SCRIPT_DIR."
+    echo "          Skipping Git alias setup."
+    echo ""
+fi
+
+# ── Main Deployment Menu ──────────────────────────────────────────────────────
+echo "========================================"
+echo "    VULNBOX MASTER DEPLOYMENT CENTER    "
 echo "========================================"
 
 PS3="Select target distribution: "
