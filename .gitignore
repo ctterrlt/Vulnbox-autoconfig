@@ -4,3 +4,4 @@ CLAUDE.md
 backup_from_*.zip
 __pycache__/
 *.pyc
+.env
