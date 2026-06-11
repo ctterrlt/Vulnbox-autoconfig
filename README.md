@@ -28,12 +28,16 @@ to do fast under pressure:
 │   └── README.md
 │
 └── python_exploits/                 # the exploit arsenal (ExploitFarm / xfarm)
-    ├── examples/                        # reference templates for the xfarm skeleton
-    └── sql/                             # service-agnostic SQL-injection exploits
-        ├── explore_database/                # leak the schema
-        ├── dump_column/                     # leak a column's values
-        └── explore_and_dump/                # both, in one run
+    ├── crypto/                          # crypto & brute-force oracles (6 projects)
+    ├── binary/                          # pwn / memory-corruption (2 projects)
+    ├── web/sql/                         # boolean-blind SQL-injection toolkit (3 tools)
+    ├── converting/                      # offline encoding/decoding helpers
+    └── examples/                        # reference templates + raw jeopardy_examples/
 ```
+
+Every project folder is self-contained: `<project>.py` (exploit) ·
+`module_<project>.py` (config) · `auto_<project>.sh` (interactive setup) ·
+`requirements.txt` · a generated `.env` · and a `README.md`.
 
 ---
 
@@ -87,26 +91,19 @@ on the attack: they share a fixed skeleton (`get_host()`, `Store()`, `get_ids()`
 the per-tick loop), so xfarm can replicate them across every team automatically and
 the target IP is injected at runtime — never hardcoded.
 
-Start with [`python_exploits/README.md`](python_exploits/README.md) for the
-ExploitFarm server setup and the exploit structure.
+Each exploit reads every target-specific value (host port, prompts, addresses,
+alphabets, injection style…) from a small config module — editable by hand or
+through an interactive `auto_*.sh` — so the same code retargets to any team's
+service in seconds. Start with
+[`python_exploits/README.md`](python_exploits/README.md) for the ExploitFarm
+server setup and the shared project pattern.
 
-### SQL injection — [`python_exploits/sql/`](python_exploits/sql/)
-
-A boolean-blind SQL-injection toolkit that retargets to **any** service in seconds.
-All target-specific details — endpoint, parameter, oracle marker, injection style,
-encoding — live in a small config module, editable by hand or through an
-interactive setup script.
-
-| Tool | What it does |
+| Category | Projects |
 |---|---|
-| [`explore_database/`](python_exploits/sql/explore_database) | Leak the schema: database, tables, columns |
-| [`dump_column/`](python_exploits/sql/dump_column) | Leak every value of a chosen column |
-| [`explore_and_dump/`](python_exploits/sql/explore_and_dump) | Both, in a single run |
-
-Choose the **injection style** (`or`, `and`, `or_like`, `union`, … or a fully
-custom payload) and the **on-the-wire encoding** (`plain`, `url`, `hex`, `base64`,
-`double_url`) to slip past naive WAF/regex filters. Full reference in
-[`python_exploits/sql/README.md`](python_exploits/sql/README.md).
+| [`crypto/`](python_exploits/crypto) | AES-ECB oracle · RSA blinding oracle · DES login brute · OR-flag rebuild · score oracle · timing attack |
+| [`binary/`](python_exploits/binary) | canary leak → ret2win · ROP → `execve` (32/64-bit) |
+| [`web/sql/`](python_exploits/web/sql) | boolean-blind SQLi: explore schema · dump column · both — configurable injection style + on-the-wire encoding (`plain`/`url`/`hex`/`base64`/`double_url`) to beat naive WAF/regex |
+| [`converting/`](python_exploits/converting) | offline url/hex/base64 helpers for crafting firewall regex |
 
 ---
 
