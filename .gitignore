@@ -5,4 +5,3 @@ ssh_on_rsa.py
 backup_from_*.zip
 __pycache__/
 *.pyc
-tryfile.txt
