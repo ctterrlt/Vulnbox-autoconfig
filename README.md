@@ -32,12 +32,15 @@ to do fast under pressure:
     ├── binary/                          # pwn / memory-corruption (2 projects)
     ├── web/sql/                         # boolean-blind SQL-injection toolkit (3 tools)
     ├── converting/                      # offline encoding/decoding helpers
+    ├── tls/                             # defensive TLS decrypt→tap→re-encrypt bridge (runs ON the vulnbox)
     └── examples/                        # reference templates + raw jeopardy_examples/
 ```
 
 Every project folder is self-contained: `<project>.py` (exploit) ·
 `module_<project>.py` (config) · `auto_<project>.sh` (interactive setup) ·
-`requirements.txt` · a generated `.env` · and a `README.md`.
+`requirements.txt` · a generated `.env` · and a `README.md`. The one exception is
+`tls/`, which is a long-running defensive proxy daemon rather than an xfarm
+exploit — it keeps the same config layout but runs on the vulnbox (see below).
 
 ---
 
@@ -104,14 +107,24 @@ server setup and the shared project pattern.
 | [`binary/`](python_exploits/binary) | canary leak → ret2win · ROP → `execve` (32/64-bit) |
 | [`web/sql/`](python_exploits/web/sql) | boolean-blind SQLi: explore schema · dump column · both — configurable injection style + on-the-wire encoding (`plain`/`url`/`hex`/`base64`/`double_url`) to beat naive WAF/regex |
 | [`converting/`](python_exploits/converting) | offline url/hex/base64 helpers for crafting firewall regex |
+| [`tls/`](python_exploits/tls) | **defensive** TLS decrypt → plaintext tap → re-encrypt bridge — read your own service's encrypted traffic (runs on the vulnbox, not an exploit) |
 
 ---
 
-## ⚠️ Safety
+## ⚠️ Safety & where things run
 
-- **Run everything from your local PC**, never on the target vulnbox.
-- Deploy scripts refuse to run inside a container or from the wrong directory —
-  heed the **DANGER** prompts if they appear.
+Three different places — don't mix them up:
+
+- **Deploy scripts (`auto.sh`, `sshconf.sh`, distro folders):** run from **your local
+  PC**, never on the target. They refuse to run inside a container or from the wrong
+  directory — heed the **DANGER** prompts if they appear.
+- **Exploit arsenal (xfarm projects):** run on the **machine hosting ExploitFarm —
+  your operator PC or attack server, _not_ the vulnbox**. xfarm fans every exploit
+  out across all teams each tick; that load on a vulnbox is heavy enough that you'd
+  effectively DoS your own box, on top of leaking your attacks to whoever owns it.
+- **`tls/` bridge:** the one piece that **runs on the vulnbox**. It sits in front of
+  one of your own services, terminates its TLS locally, and exposes the plaintext so
+  you can inspect it — so it has to live where the service does.
 
 ---
 
