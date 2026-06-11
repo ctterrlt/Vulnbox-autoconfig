@@ -1,98 +1,127 @@
 # 🚀 Vulnbox-AutoConfig
 
-A unified, professional-grade deployment framework for Attack/Defense CTFs and remote administration. This toolkit transforms bare-bones remote shells into fully-equipped, custom-configured operator environments in seconds.
+A toolkit for **Attack/Defense CTFs**, built around the two things you always need
+to do fast under pressure:
 
-## 🌟 Key Features
-
-- **Master Controller:** One-click deployment from a central hub.
-- **Standardized Workflow:** All distributions use a single `zshconfig` source-of-truth.
-- **Global Git Configuration:** Automatically links a shared repository of Git aliases and visual tweaks, prompting for identity setup if needed, without destroying existing configurations.
-- **Zero-Touch SSH:** Automatically handles SSH key generation and target authentication.
-- **Custom Port Support:** Prompts for the target SSH port (defaults to 22 if left empty).
-- **Auto SSH Config:** Writes a `~/.ssh/config` entry for each target so you can `ssh <alias>` after deployment without remembering IPs or ports.
-- **CTF Ready:** Pre-loaded aliases for Docker, networking, VPNs, and offensive toolchains.
-- **Visual & QoL:** Pre-configured with Fastfetch, Oh-My-Zsh, syntax highlighting, and autosuggestions.
-- **Automatic Backup:** Automatically zips everything on the vulnbox.
+1. **🛠 Vulnbox setup** — turn a fresh remote shell into a fully configured
+   operator environment (zsh, Oh-My-Zsh, aliases, offensive tooling) with a single
+   command, over SSH.
+2. **💉 Exploit arsenal** — drop-in, service-agnostic exploits that plug straight
+   into [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and fire at
+   every team, every tick.
 
 ---
 
-## 📂 Repository Structure
-
-The repository is organized by distribution. Each folder contains the specific automation logic for that OS, sharing a standardized configuration file.
+## 📂 Repository structure
 
 ```text
 .
-├── auto.sh                       # <-- Run this to start
-├── gitconfig.conf                # Shared Git aliases and core settings
-├── sshconf.sh                    # Shared SSH setup (prompts, ~/.ssh/config, key gen/copy)
-├── arch/
-│   ├── arch_auto.sh              # Deployment script
-│   ├── zshchangeconf_arch.sh     # Re-push config only (no full redeploy)
-│   └── zshconfig_arch.conf       # Arch-specific zsh config
-├── debian_ubuntu/
-│   ├── debian_ubuntu_auto.sh
-│   ├── zshchangeconf_debian_ubuntu.sh
-│   └── zshconfig_debian_ubuntu.conf
-└── fedora/
-    ├── fedora_auto.sh
-    ├── zshchangeconf_fedora.sh
-    └── zshconfig_fedora.conf
+├── auto.sh                          # entry point — pick a distro and deploy
+├── sshconf.sh                       # shared SSH setup (prompts, ~/.ssh/config, keys)
+├── gitconfig.conf                   # shared git aliases
+│
+├── arch/  ·  debian_ubuntu/  ·  fedora/      # one folder per distribution
+│   ├── <distro>_auto.sh                 # full deploy
+│   ├── zshchangeconf_<distro>.sh        # re-push the config only
+│   ├── zshconfig_<distro>.conf          # the .zshrc that gets deployed
+│   ├── zshinstall_<distro>.sh           # standalone manual installer
+│   └── README.md
+│
+└── python_exploits/                 # the exploit arsenal (ExploitFarm / xfarm)
+    ├── examples/                        # reference templates for the xfarm skeleton
+    └── sql/                             # service-agnostic SQL-injection exploits
+        ├── explore_database/                # leak the schema
+        ├── dump_column/                     # leak a column's values
+        └── explore_and_dump/                # both, in one run
 ```
 
 ---
 
-## 🚀 How to Deploy
+## 🛠 Part 1 — Vulnbox setup
 
-### 1. Initial Setup
+### Highlights
 
-Ensure all scripts are executable before running the master controller:
+- **One command:** `./auto.sh` handles any supported distro from a single menu.
+- **Zero-touch SSH:** generates a key, copies it to the target, and writes a
+  `~/.ssh/config` entry so you can reconnect later with just `ssh <alias>`.
+- **One source of truth:** every distro shares the same `zshconfig` and git setup.
+- **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch,
+  Oh-My-Zsh, syntax highlighting and autosuggestions.
+- **Automatic backup:** zips the remote home directory and pulls it down locally.
+
+### Deploy
 
 ```bash
 chmod +x auto.sh
-find . -name "*.sh" -exec chmod +x {} \;
-```
-
-### 2. Execution
-
-From the repo root directory, run the master script:
-
-```bash
 ./auto.sh
 ```
 
-### 3. Usage Steps
+Pick the target distribution, then enter the IP, username, SSH port (blank = 22)
+and an optional alias. The script writes the `~/.ssh/config` entry, sets up the
+key, installs zsh and tooling on the box, applies the config, pulls a backup, and
+drops you into a live session.
 
-1. **Git Setup:** Upon first run, the master script will link your `gitconfig.conf` aliases and prompt you for your Git `user.name` and `user.email` if they aren't already set on your local machine.
-2. **Select Target:** Choose the distribution that matches your remote target (Arch, Debian/Ubuntu, or Fedora).
-3. **Authentication:** Enter the remote IP, username, SSH port (leave blank for 22), and an optional friendly alias for the host.
-4. **Automation:** The script will automatically:
-   - Add a `~/.ssh/config` entry for the target (alias, IP, port, identity file) so you can reconnect later with just `ssh <alias>`.
-   - Generate local SSH keys (if missing).
-   - Upload the public key to the remote box.
-   - Upload the zsh config file to the remote `/tmp`.
-   - Execute the remote payload to install packages and apply the configuration.
-   - Drop you into your new Zsh environment.
+> Already have your key on the target? Skip key generation and copy with
+> `SKIP_SSH=1 ./auto.sh` — the connection prompts still run, they're needed for the
+> rest of the deploy.
 
-> **Tip:** If your SSH key is already deployed on the target, you can skip the key-gen and key-copy step by running `SKIP_SSH=1 ./auto.sh`. The IP/user/port prompts still run — they're needed for the rest of the deploy.
+### Maintain
 
----
+| To change… | Edit… |
+|---|---|
+| Shell aliases, themes, plugins | `<distro>/zshconfig_<distro>.conf` |
+| Git aliases | `gitconfig.conf` |
+| SSH setup (keys, `~/.ssh/config`) | `sshconf.sh` (shared by all distros) |
 
-## 💡 Maintenance
-
-To update your environment (e.g., changing an alias or adding a tool):
-
-1. **For Shell Aliases:** Navigate to the specific distro folder (e.g., `cd arch/`) and edit the `zshconfig_arch.conf` file.
-2. **For Git Aliases:** Edit the global `gitconfig.conf` file in the root directory.
-3. **For SSH Setup** (key generation, key copy, `~/.ssh/config` entry): edit the single root `sshconf.sh` — all distros share it.
-4. **That's it.** The next time you run `./auto.sh`, it will push the updated configurations automatically. You never need to touch the deploy script logic again.
+Configuration is decoupled from deploy logic, so the next `./auto.sh` simply
+re-pushes your edits. Per-distro details live in each distribution's README.
 
 ---
 
-## ⚠️ Safety Warning
+## 💉 Part 2 — Exploit arsenal
 
-- **Local Execution Only:** This tool is designed to be run from your **local PC**, not on the target remote machine.
-- **Safety Guards:** Every script includes a check to ensure you aren't running it inside a Docker container or from the wrong directory by accident. Always heed the **DANGER** warnings if they appear.
+Every exploit here runs on [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm)
+and its `xfarm` client by [**Pwnzer0tt1**](https://github.com/Pwnzer0tt1), which
+handle target dispatching, flag extraction and submission. The exploits focus only
+on the attack: they share a fixed skeleton (`get_host()`, `Store()`, `get_ids()`,
+the per-tick loop), so xfarm can replicate them across every team automatically and
+the target IP is injected at runtime — never hardcoded.
+
+Start with [`python_exploits/README.md`](python_exploits/README.md) for the
+ExploitFarm server setup and the exploit structure.
+
+### SQL injection — [`python_exploits/sql/`](python_exploits/sql/)
+
+A boolean-blind SQL-injection toolkit that retargets to **any** service in seconds.
+All target-specific details — endpoint, parameter, oracle marker, injection style,
+encoding — live in a small config module, editable by hand or through an
+interactive setup script.
+
+| Tool | What it does |
+|---|---|
+| [`explore_database/`](python_exploits/sql/explore_database) | Leak the schema: database, tables, columns |
+| [`dump_column/`](python_exploits/sql/dump_column) | Leak every value of a chosen column |
+| [`explore_and_dump/`](python_exploits/sql/explore_and_dump) | Both, in a single run |
+
+Choose the **injection style** (`or`, `and`, `or_like`, `union`, … or a fully
+custom payload) and the **on-the-wire encoding** (`plain`, `url`, `hex`, `base64`,
+`double_url`) to slip past naive WAF/regex filters. Full reference in
+[`python_exploits/sql/README.md`](python_exploits/sql/README.md).
 
 ---
 
-Happy Hacking! 🛡✨
+## ⚠️ Safety
+
+- **Run everything from your local PC**, never on the target vulnbox.
+- Deploy scripts refuse to run inside a container or from the wrong directory —
+  heed the **DANGER** prompts if they appear.
+
+---
+
+## 🙏 Credits
+
+[**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and **xfarm**, by
+[**Pwnzer0tt1**](https://github.com/Pwnzer0tt1) — the engine the entire exploits are built for.
+
+Happy hacking! 🛡✨
+
