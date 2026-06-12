@@ -28,7 +28,7 @@ to do fast under pressure:
 │   └── README.md
 │
 └── python_exploits/                 # the exploit arsenal (ExploitFarm / xfarm)
-    ├── crypto/                          # crypto & brute-force oracles (6 projects)
+    ├── crypto/                          # crypto & brute-force oracles (7 projects)
     ├── binary/                          # pwn / memory-corruption (2 projects)
     ├── web/sql/                         # boolean-blind SQL-injection toolkit (3 tools)
     ├── converting/                      # offline encoding/decoding helpers
