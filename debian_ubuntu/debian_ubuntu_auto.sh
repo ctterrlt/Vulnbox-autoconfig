@@ -131,7 +131,7 @@ ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' B
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
-    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "~/backup_from_${TARGET_IP}.zip"
+    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi
