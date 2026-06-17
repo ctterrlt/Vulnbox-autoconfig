@@ -44,6 +44,7 @@ This uploads the config and applies it to `~/.zshrc` on the remote target withou
 ## 🛠 Configuration Management
 
 - To change aliases, themes, or plugins: edit `arch/zshconfig_arch.conf`.
+- To change the Neovim config: edit the root `nvimconfig.lua` — shared across all distros. The deploy asks before applying it.
 - To change install logic (e.g. adding a package): edit `arch/arch_auto.sh`.
 - To change SSH setup (prompts, key gen, key copy, `~/.ssh/config`): edit the root `sshconf.sh` — shared across all distros.
 
@@ -69,6 +70,8 @@ ssh vulnbox
 ```
 
 The `~/.ssh/config` entry is written once and never overwritten on subsequent runs.
+
+The deploy then asks one more question — whether to push the shared Neovim config (`nvimconfig.lua`) to `~/.config/nvim/init.lua`. Answer `y` to install Neovim (only if missing or outdated) and apply it; anything else leaves the box's editor setup untouched.
 
 If your key is already deployed, skip key-gen and key-copy with:
 

@@ -19,6 +19,7 @@ to do fast under pressure:
 ├── auto.sh                          # entry point — pick a distro and deploy
 ├── sshconf.sh                       # shared SSH setup (prompts, ~/.ssh/config, keys)
 ├── gitconfig.conf                   # shared git aliases
+├── nvimconfig.lua                   # shared Neovim config (→ ~/.config/nvim/init.lua)
 │
 ├── arch/  ·  debian_ubuntu/  ·  fedora/      # one folder per distribution
 │   ├── <distro>_auto.sh                 # full deploy
@@ -54,6 +55,9 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
 - **One source of truth:** every distro shares the same `zshconfig` and git setup.
 - **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch,
   Oh-My-Zsh, syntax highlighting and autosuggestions.
+- **Editor (opt-in):** prompts whether to install Neovim and deploy a shared
+  `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/` —
+  decline to leave the box's existing editor setup untouched.
 - **Automatic backup:** zips the remote home directory and pulls it down locally.
 
 ### Deploy
@@ -64,9 +68,10 @@ chmod +x auto.sh
 ```
 
 Pick the target distribution, then enter the IP, username, SSH port (blank = 22)
-and an optional alias. The script writes the `~/.ssh/config` entry, sets up the
-key, installs zsh and tooling on the box, applies the config, pulls a backup, and
-drops you into a live session.
+and an optional alias. You'll also be asked whether to deploy the Neovim config
+(decline to leave the box's existing one alone). The script writes the
+`~/.ssh/config` entry, sets up the key, installs zsh and tooling on the box,
+applies the config, pulls a backup, and drops you into a live session.
 
 > Already have your key on the target? Skip key generation and copy with
 > `SKIP_SSH=1 ./auto.sh` — the connection prompts still run, they're needed for the
@@ -77,6 +82,7 @@ drops you into a live session.
 | To change… | Edit… |
 |---|---|
 | Shell aliases, themes, plugins | `<distro>/zshconfig_<distro>.conf` |
+| Neovim config (`~/.config/nvim/init.lua`) | `nvimconfig.lua` (shared by all distros) |
 | Git aliases | `gitconfig.conf` |
 | SSH setup (keys, `~/.ssh/config`) | `sshconf.sh` (shared by all distros) |
 
