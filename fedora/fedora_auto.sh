@@ -28,6 +28,12 @@ cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload.sh
 #!/bin/bash
 set -euo pipefail
 
+# Prime sudo once up front so the prompt is clear (not buried in package output)
+# and cached for the rest of the run. This runs ON the vulnbox via `ssh -t`, so
+# the password requested is the REMOTE box's, NOT your local machine's.
+echo ">>> sudo below wants the password of $(whoami)@$(hostname) — the REMOTE vulnbox, not your local PC."
+sudo -v
+
 # Install packages
 # Note: fastfetch, lsd, tty-clock may not be in default Fedora repos.
 # zsh-syntax-highlighting and zsh-autosuggestions are better managed
@@ -74,7 +80,9 @@ fi
 scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh      "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
-ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh"
+echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
+echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 echo -e "\n=== 4. PULLING BACKUP ==="
 scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"

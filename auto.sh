@@ -34,12 +34,33 @@ if [[ -f "$GIT_CONF_SRC" ]]; then
     if [[ "$CURRENT_INCLUDES" == *"$GIT_CONF_SRC"* ]]; then
         echo "[OK] Git aliases are already linked."
     else
-        read -r -p "Link Vulnbox Git aliases to your ~/.gitconfig? (y/N) " link_aliases
+        read -r -p "Import Vulnbox Git config into your ~/.gitconfig? (y/N) " link_aliases
         if [[ "$link_aliases" == [yY] ]]; then
-            git config --global --add include.path "$GIT_CONF_SRC"
-            echo "[SUCCESS] Linked Git aliases to your ~/.gitconfig."
+            read -r -p "Import [a]ll, or choose [i]tem per item? (a/i) [a]: " git_mode
+            git_mode=${git_mode:-a}
+            if [[ "$git_mode" == [iI] ]]; then
+                # Per-item: read each entry's value from the source via git itself
+                # (no manual ini parsing — keeps complex values like 'lg' intact),
+                # then apply only the chosen ones to ~/.gitconfig.
+                echo "Choose which entries to import:"
+                mapfile -t GIT_KEYS < <(git config -f "$GIT_CONF_SRC" --list --name-only)
+                imported=0
+                for key in "${GIT_KEYS[@]}"; do
+                    val=$(git config -f "$GIT_CONF_SRC" --get "$key")
+                    read -r -p "  import  ${key} = ${val}  ? (y/N) " pick
+                    if [[ "$pick" == [yY] ]]; then
+                        git config --global "$key" "$val"
+                        echo "    [+] ${key}"
+                        imported=$((imported + 1))
+                    fi
+                done
+                echo "[SUCCESS] Imported ${imported} Git entr$([[ $imported -eq 1 ]] && echo y || echo ies) into ~/.gitconfig."
+            else
+                git config --global --add include.path "$GIT_CONF_SRC"
+                echo "[SUCCESS] Linked all Vulnbox Git config to your ~/.gitconfig."
+            fi
         else
-            echo "[SKIPPED] Git aliases not linked."
+            echo "[SKIPPED] Git config not imported."
         fi
     fi
 
