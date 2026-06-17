@@ -21,9 +21,13 @@ echo -e "\n=== 2. DEPLOYING PAYLOAD ==="
 # The box may already have a Neovim config — only deploy ours if asked.
 read -rp "Deploy the Neovim config to ~/.config/nvim/init.lua on the target? (y/N) " DEPLOY_NVIM
 
+# Optionally push the shared git aliases to the target's ~/.gitconfig.
+read -rp "Deploy the git aliases (gitconfig.conf) to the target's ~/.gitconfig? (y/N) " DEPLOY_GIT
+
 # Backups can be huge — opt in, and pick exactly what to archive (not always home).
 read -rp "Pull a backup from the target before finishing? (y/N) " DO_BACKUP
 BACKUP_PATHS=""
+BACKUP_DEST="$HOME"
 if [[ $DO_BACKUP == [yY] ]]; then
     DO_BACKUP=y
     # Show what's in the target's home so you can choose folders by name (lsd if present).
@@ -43,13 +47,35 @@ if [[ $DO_BACKUP == [yY] ]]; then
                 *)    DO_BACKUP=n; echo "  -> backup cancelled."; break ;;
             esac
         else
-            echo "Selected for backup:"
-            for _p in $BACKUP_PATHS; do echo "    - $_p"; done
-            read -rp "Proceed with these? ([y]es / [r]e-enter) " ans
+            # Normalize bare names to ~/name and show where each resolves on the target.
+            _norm=""
+            for _p in $BACKUP_PATHS; do
+                case "$_p" in
+                    /*|"~"|"~/"*) _q="$_p" ;;
+                    *)            _q="~/$_p" ;;
+                esac
+                _norm+="${_norm:+ }$_q"
+            done
+            BACKUP_PATHS="$_norm"
+            echo "Selected for backup (on the target):"
+            for _p in $BACKUP_PATHS; do
+                case "$_p" in */) echo "    - $_p" ;; *) echo "    - $_p/" ;; esac
+            done
+            read -rp "Proceed with these? [Y]es (Enter) / [r]e-enter: " ans
             if [[ "$ans" == [rR] ]]; then continue; fi
             break
         fi
     done
+    if [[ $DO_BACKUP == y ]]; then
+        echo
+        read -rp "Where should the pulled backup be saved locally? [${HOME}]: " BACKUP_DEST
+        BACKUP_DEST="${BACKUP_DEST:-$HOME}"
+        case "$BACKUP_DEST" in
+            "~")   BACKUP_DEST="$HOME" ;;
+            "~/"*) BACKUP_DEST="$HOME/${BACKUP_DEST#\~/}" ;;
+        esac
+        mkdir -p "$BACKUP_DEST"
+    fi
 else
     DO_BACKUP=n
 fi
@@ -106,6 +132,16 @@ if [ -f /tmp/nvimconfig.lua ]; then
     mv /tmp/nvimconfig.lua ~/.config/nvim/init.lua
 fi
 
+# Apply git aliases (only if transferred — user opted in). Link via include.path
+# so the aliases live in their own file and ~/.gitconfig stays clean.
+if [ -f /tmp/gitconfig.conf ]; then
+    mv /tmp/gitconfig.conf ~/.gitconfig_vulnbox
+    if ! git config --global --get-all include.path 2>/dev/null | grep -qxF "$HOME/.gitconfig_vulnbox"; then
+        git config --global --add include.path "$HOME/.gitconfig_vulnbox"
+    fi
+    echo "Git aliases linked into ~/.gitconfig."
+fi
+
 # Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
 # via the ssh command below; an empty BACKUP_PATHS falls back to the home dir.
 if [ "${DO_BACKUP:-n}" = "y" ]; then
@@ -136,6 +172,11 @@ else
     # Clear any stale copy from a previous run so the payload doesn't apply it
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nvimconfig.lua"
 fi
+if [[ $DEPLOY_GIT == [yY] ]]; then
+    scp -P "$TARGET_PORT" "$DIR/../gitconfig.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/gitconfig.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/gitconfig.conf"
+fi
 scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh     "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
@@ -145,7 +186,8 @@ ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' B
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
-    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
+    echo "Moving backup.zip to ${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
+    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi

@@ -90,8 +90,8 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
 
     # ~/.ssh/id_ed25519.pub may hold several public keys. Let the operator pick
     # which one(s) to push per run instead of spraying all of them. We never
-    # modify the .pub file — selected keys go into a temp file we hand to
-    # ssh-copy-id (which itself skips any key already present on the target).
+    # modify the .pub file — selected keys go into a temp file, then get appended
+    # to the target's authorized_keys (skipping any already present) over SSH.
     PUBFILE="$HOME/.ssh/id_ed25519.pub"
     GENUINE_KEY="$(ssh-keygen -y -f "$HOME/.ssh/id_ed25519" | awk '{print $1" "$2}')"
     mapfile -t KEY_LINES < <(grep -vE '^[[:space:]]*$' "$PUBFILE")
@@ -113,9 +113,8 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
     KEY_SEL=("$GENUINE_IDX")               # default: your own login key
     review_selection KEY_OPTS KEY_SEL "key"
 
-    # Name it *.pub: `ssh-copy-id -i <file>` appends ".pub" when the file lacks
-    # that suffix, so a bare mktemp name makes it look for a nonexistent ".pub".
-    SEL_PUB="$(mktemp --suffix=.pub)"
+    # Temp file holding just the selected public keys.
+    SEL_PUB="$(mktemp)"
     trap 'rm -f "$SEL_PUB"' EXIT
     : > "$SEL_PUB"
     for n in "${KEY_SEL[@]:-}"; do
@@ -129,11 +128,25 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
         if ! grep -qF "$GENUINE_KEY" "$SEL_PUB"; then
             echo "[WARN] Your own login key was not selected — later SSH steps may prompt for a password."
         fi
+        echo
         echo "Copying selected key(s) to ${TARGET_USER}@${TARGET_IP}..."
         echo "(If prompted for a password here, it's the REMOTE login password of ${TARGET_USER}@${TARGET_IP} — not your local machine.)"
-        if ! ssh-copy-id -p "$TARGET_PORT" -i "$SEL_PUB" "${TARGET_USER}@${TARGET_IP}"; then
-            cat "$SEL_PUB" | ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
-                "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-        fi
+        # Append each selected key to authorized_keys, skipping any already there.
+        # We do this by hand instead of ssh-copy-id, whose -i handling of a
+        # standalone .pub (no matching private key) varies across OpenSSH versions.
+        ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" '
+            umask 077; mkdir -p ~/.ssh
+            added=0
+            while IFS= read -r _k; do
+                [ -z "$_k" ] && continue
+                if grep -qxF "$_k" ~/.ssh/authorized_keys 2>/dev/null; then
+                    continue
+                fi
+                printf "%s\n" "$_k" >> ~/.ssh/authorized_keys
+                added=$((added + 1))
+            done
+            chmod 600 ~/.ssh/authorized_keys 2>/dev/null || true
+            echo "  ${added} new key(s) added to authorized_keys."
+        ' < "$SEL_PUB"
     fi
 fi

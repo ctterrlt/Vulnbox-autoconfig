@@ -44,7 +44,7 @@ review_selection() {
         for n in "${!__r_opts[@]}"; do
             printf "    %s) %s\n" "$((n + 1))" "${__r_opts[$n]}"
         done
-        read -rp "[c]onfirm · [a]dd <nums> · [r]emove <nums>: " action rest
+        read -rp "[c]onfirm (Enter) · [a]dd <nums> · [r]emove <nums>: " action rest
 
         case "$action" in
             ""|c|C)
