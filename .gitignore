@@ -8,3 +8,12 @@ __pycache__/
 # Self-signed certs minted locally by python_exploits/tls
 tls_server.crt
 tls_server.key
+# Runtime artifacts from converting/noobexfil_solve.py (any dir)
+flag.zip
+flag_out/
+*.pcapng
+*.pcap
+# Python virtualenvs / build output (any dir)
+venv/
+.venv/
+build/
