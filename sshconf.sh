@@ -76,6 +76,22 @@ else
     echo "[OK] '${HOST_ALIAS}' already in ~/.ssh/config — skipping."
 fi
 
+# ── SCP TRANSFER PROTOCOL ─────────────────────────────────────────────────────
+# Modern scp (OpenSSH 9+) uses the SFTP subsystem, which fails with
+# "subsystem request failed on channel 0" on boxes whose sshd lacks it (e.g.
+# after an openssh upgrade mid-deploy). Legacy mode (scp -O) avoids that.
+# SCP_OPTS is consumed unquoted by every scp call in the distro deploy scripts.
+echo -e "\n=== SCP PROTOCOL ==="
+echo "Legacy mode (scp -O) is the most compatible — recommended for vulnboxes."
+read -rp "Use legacy scp protocol (-O)? [Y]es (Enter) / [n]o (modern SFTP): " _scp_legacy
+if [[ "$_scp_legacy" == [nN] ]]; then
+    SCP_OPTS=""
+    echo "[OK] Using modern SFTP-based scp."
+else
+    SCP_OPTS="-O"
+    echo "[OK] Using legacy scp protocol (-O)."
+fi
+
 # ── SECURE ACCESS ─────────────────────────────────────────────────────────────
 # Set SKIP_SSH=1 to skip key-gen and key-copy (e.g. key already deployed).
 if [[ "${SKIP_SSH:-0}" != "1" ]]; then
