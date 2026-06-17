@@ -77,7 +77,9 @@ choose **all** (link the whole `gitconfig.conf`) or **item-per-item** (toggle
 each alias/setting). Pick the target distribution, then either **reuse a host
 already in `~/.ssh/config`** or enter a new IP, username, SSH port (blank = 22)
 and optional alias. Choose **which public key(s) to copy** (defaults to your own
-key), whether to deploy the Neovim config (decline to leave the box's existing one
+key), the **scp transfer mode** (legacy `-O` by default — most compatible with
+vulnboxes whose `sshd` lacks the SFTP subsystem), whether to deploy the Neovim
+config (decline to leave the box's existing one
 alone), whether to deploy the shared git aliases to the target, and whether to pull
 a backup — if so, which folder(s) to zip (home-relative name, `~` path, or absolute;
 blank = whole home) and where to save it locally (default `$HOME`). The script writes

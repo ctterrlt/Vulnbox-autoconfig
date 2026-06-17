@@ -65,7 +65,9 @@ For a new target it prompts for four connection parameters:
 | SSH Port | `22` | Leave blank to use the default |
 | Host alias | IP address | Friendly name used in `~/.ssh/config` (e.g. `vulnbox`) |
 
-Before copying the key it lists the public keys in `id_ed25519.pub` with your own key pre-selected, and lets you **confirm / add / remove** which one(s) to copy. Your `.pub` file is left untouched, and any key already on the target is skipped.
+Before copying the key it lists the public keys in `id_ed25519.pub` with your own key pre-selected, and lets you **confirm / add / remove** which one(s) to copy (type a number to toggle it, `a`/`r` + numbers to force add/remove, Enter to confirm). Your `.pub` file is left untouched, and any key already on the target is skipped.
+
+It then asks whether to use the **legacy scp protocol (`-O`)** — the default and most compatible. Modern `scp` uses the SFTP subsystem, which can fail with `subsystem request failed on channel 0` on boxes whose `sshd` lacks it (e.g. right after an OpenSSH upgrade mid-deploy); answer `n` only if you specifically want SFTP.
 
 After deployment you can reconnect with just:
 
