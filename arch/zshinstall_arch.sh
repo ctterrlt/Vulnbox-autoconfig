@@ -21,7 +21,11 @@ if ! command -v yay &>/dev/null; then
     rm -rf "$tmpdir"
 fi
 
-yay -Syu --noconfirm --needed zip zsh nano git curl fastfetch lsd tty-clock cmatrix zsh-syntax-highlighting zsh-autosuggestions openssh
+# Core packages first; cosmetic extras best-effort so a missing one can't abort.
+yay -Syu --noconfirm --needed zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh
+for _pkg in fastfetch lsd tty-clock cmatrix; do
+    yay -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
+done
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 sudo chsh -s "$(which zsh)" "$USER"
 exec zsh

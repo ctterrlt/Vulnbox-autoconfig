@@ -93,14 +93,13 @@ set -euo pipefail
 echo ">>> sudo below wants the password of $(whoami)@$(hostname) — the REMOTE vulnbox, not your local PC."
 sudo -v
 
-# Install packages
-# Note: fastfetch, lsd, tty-clock may not be in default Fedora repos.
-# zsh-syntax-highlighting and zsh-autosuggestions are better managed
-# via Oh-My-Zsh plugins on Fedora — the conf handles this already.
-sudo dnf install -y \
-    zip zsh nano git curl \
-    neofetch lsd tty-clock cmatrix \
-    openssh-server
+# Install packages. zsh-syntax-highlighting and zsh-autosuggestions are managed as
+# Oh-My-Zsh plugins on Fedora — the conf handles this. Core packages go in first;
+# the cosmetic extras use dnf's --skip-unavailable so a package that's missing from
+# the repos (neofetch is discontinued, tty-clock isn't always packaged) is dropped
+# instead of aborting the whole transaction (dnf5 fails the lot otherwise).
+sudo dnf install -y zip zsh nano git curl openssh-server
+sudo dnf install -y --skip-unavailable fastfetch lsd tty-clock cmatrix
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then

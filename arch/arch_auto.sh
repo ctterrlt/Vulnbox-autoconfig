@@ -108,10 +108,14 @@ if ! command -v yay &>/dev/null; then
     rm -rf "$tmpdir"
 fi
 
-# Install packages via yay (handles both official and AUR)
+# Install packages via yay (handles both official and AUR). Core first, then the
+# cosmetic extras best-effort, so a package that's missing or renamed in the repos
+# can't abort the whole deploy.
 yay -Syu --noconfirm --needed \
-    zip zsh nano git curl fastfetch lsd tty-clock cmatrix \
-    zsh-syntax-highlighting zsh-autosuggestions openssh
+    zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh
+for _pkg in fastfetch lsd tty-clock cmatrix; do
+    yay -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
+done
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then

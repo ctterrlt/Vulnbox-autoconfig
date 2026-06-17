@@ -90,14 +90,15 @@ set -euo pipefail
 echo ">>> sudo below wants the password of $(whoami)@$(hostname) — the REMOTE vulnbox, not your local PC."
 sudo -v
 
-# Install packages
-# Note: fastfetch, lsd, tty-clock are not in default apt repos.
-# Add their PPAs or install manually if apt fails to find them.
-sudo apt update && sudo apt install -y \
-    zip zsh nano git curl \
-    neofetch lsd tty-clock cmatrix \
-    zsh-syntax-highlighting zsh-autosuggestions \
-    openssh-server
+# Install packages. Core first; cosmetic extras (fastfetch, lsd, tty-clock, cmatrix)
+# best-effort one at a time, since they're not in every apt release and `apt install`
+# aborts the whole list if any one is missing (neofetch is discontinued upstream).
+sudo apt update
+sudo apt install -y zip zsh nano git curl \
+    zsh-syntax-highlighting zsh-autosuggestions openssh-server
+for _pkg in fastfetch lsd tty-clock cmatrix; do
+    sudo apt install -y "$_pkg" || echo "  (skipped $_pkg — not in repos)"
+done
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
