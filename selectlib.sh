@@ -22,13 +22,19 @@ _sl_has() {
 #   SELECTED_ARRAY : 1-based indices into OPTIONS — seeded with the default
 #                    selection and edited in place; holds the final pick on return.
 #   label          : noun shown in the prompts (default "item").
-# Loops: lists the current selection + all options, then reads
-#   [c]onfirm · [a]dd <nums> · [r]emove <nums>  (Enter = confirm).
+# Each round lists the current selection + all options, then reads a line:
+#   - Enter (or 'c')      -> confirm and return
+#   - any number(s)       -> TOGGLE those items (in if out, out if in)
+#   - 'a <nums>'          -> force-add those items
+#   - 'r <nums>'          -> force-remove those items
+# Numbers are pulled from anywhere in the line, so stray brackets/commas/words
+# (e.g. "a <1 2>", "1,2", "add 2") all work.
 review_selection() {
     local -n __r_opts="$1"
     local -n __r_sel="$2"
     local label="${3:-item}"
-    local action rest n x
+    local _line _first _mode n x
+    local -a _nums kept
 
     while true; do
         echo
@@ -44,35 +50,48 @@ review_selection() {
         for n in "${!__r_opts[@]}"; do
             printf "    %s) %s\n" "$((n + 1))" "${__r_opts[$n]}"
         done
-        read -rp "[c]onfirm (Enter) · [a]dd <nums> · [r]emove <nums>: " action rest
+        echo "Examples:  2 → toggle item 2  ·  1 2 → toggle both  ·  a 2 → add  ·  r 1 → remove  ·  Enter → confirm"
+        read -rp "Your choice: " _line
 
-        case "$action" in
-            ""|c|C)
-                return 0
-                ;;
-            a|A)
-                for n in $rest; do
-                    if [[ "$n" =~ ^[0-9]+$ ]] && (( n >= 1 && n <= ${#__r_opts[@]} )); then
-                        _sl_has __r_sel "$n" || __r_sel+=("$n")
-                    else
-                        echo "    (ignored '$n')"
-                    fi
-                done
-                ;;
-            r|R)
-                local kept=() keep
-                for x in "${__r_sel[@]:-}"; do
-                    [[ -z "$x" ]] && continue
-                    keep=1
-                    for n in $rest; do [[ "$x" == "$n" ]] && keep=0; done
-                    if (( keep )); then kept+=("$x"); fi
-                done
-                __r_sel=("${kept[@]:-}")
-                if (( ${#__r_sel[@]} == 1 )) && [[ -z "${__r_sel[0]}" ]]; then __r_sel=(); fi
-                ;;
-            *)
-                echo "    (use 'c', 'a <nums>', or 'r <nums>')"
-                ;;
+        # First non-space char selects the mode; numbers come from the whole line.
+        _first="$(printf '%s' "$_line" | sed -E 's/^[[:space:]]*//' | cut -c1)"
+        mapfile -t _nums < <(printf '%s' "$_line" | grep -oE '[0-9]+')
+
+        case "$_first" in
+            ""|c|C) return 0 ;;
+            a|A)      _mode=add ;;
+            r|R)      _mode=remove ;;
+            [0-9])    _mode=toggle ;;
+            *) echo "    (Enter to confirm, number(s) to toggle, or 'a'/'r' + numbers)"; continue ;;
         esac
+
+        if (( ${#_nums[@]} == 0 )); then
+            echo "    (give a number, e.g. '2')"
+            continue
+        fi
+
+        for n in "${_nums[@]}"; do
+            if (( n < 1 || n > ${#__r_opts[@]} )); then
+                echo "    (no item $n)"
+                continue
+            fi
+            if _sl_has __r_sel "$n"; then
+                # currently selected — remove on remove/toggle
+                if [[ "$_mode" == remove || "$_mode" == toggle ]]; then
+                    kept=()
+                    for x in "${__r_sel[@]:-}"; do
+                        [[ -z "$x" || "$x" == "$n" ]] && continue
+                        kept+=("$x")
+                    done
+                    __r_sel=("${kept[@]:-}")
+                    if (( ${#__r_sel[@]} == 1 )) && [[ -z "${__r_sel[0]}" ]]; then __r_sel=(); fi
+                fi
+            else
+                # not selected — add on add/toggle
+                if [[ "$_mode" == add || "$_mode" == toggle ]]; then
+                    __r_sel+=("$n")
+                fi
+            fi
+        done
     done
 }
