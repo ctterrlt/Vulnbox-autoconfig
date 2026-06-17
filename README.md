@@ -50,9 +50,11 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
 ### Highlights
 
 - **One command:** `./auto.sh` handles any supported distro from a single menu.
-- **Zero-touch SSH:** generates a key, copies it to the target, and writes a
+- **Zero-touch SSH:** reuse a host already in `~/.ssh/config` or set up a new
+  target, pick exactly which `id_ed25519.pub` key(s) to copy, and get a
   `~/.ssh/config` entry so you can reconnect later with just `ssh <alias>`.
-- **One source of truth:** every distro shares the same `zshconfig` and git setup.
+- **One source of truth:** every distro shares the same `zshconfig` and git setup —
+  import the git aliases/settings wholesale or pick them item by item.
 - **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch,
   Oh-My-Zsh, syntax highlighting and autosuggestions.
 - **Editor (opt-in):** prompts whether to install Neovim and deploy a shared
@@ -67,11 +69,18 @@ chmod +x auto.sh
 ./auto.sh
 ```
 
-Pick the target distribution, then enter the IP, username, SSH port (blank = 22)
-and an optional alias. You'll also be asked whether to deploy the Neovim config
-(decline to leave the box's existing one alone). The script writes the
-`~/.ssh/config` entry, sets up the key, installs zsh and tooling on the box,
-applies the config, pulls a backup, and drops you into a live session.
+First you're asked whether to import the shared git config — answer `y`, then
+choose **all** (link the whole `gitconfig.conf`) or **item-per-item** (toggle
+each alias/setting). Pick the target distribution, then either **reuse a host
+already in `~/.ssh/config`** or enter a new IP, username, SSH port (blank = 22)
+and optional alias. Choose **which public key(s) to copy** (defaults to your own
+key) and whether to deploy the Neovim config (decline to leave the box's existing
+one alone). The script writes the `~/.ssh/config` entry, sets up the key, installs
+zsh and tooling on the box, applies the config, pulls a backup, and drops you into
+a live session.
+
+> The remote setup runs `sudo` on the **target**, so any password it asks for is
+> the **vulnbox's**, not your local machine's — the script says so on screen.
 
 > Already have your key on the target? Skip key generation and copy with
 > `SKIP_SSH=1 ./auto.sh` — the connection prompts still run, they're needed for the

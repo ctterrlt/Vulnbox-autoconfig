@@ -54,7 +54,9 @@ Your configuration is decoupled from the deployment logic. Any changes to `zshco
 
 ## 🔌 Port & SSH Config
 
-The script prompts for four connection parameters:
+First the script offers to **reuse a host already in `~/.ssh/config`** — pick one by number to prefill its IP/user/port, or press Enter to set up a new target. An entry that matches nothing (or a host with no user defined) reports a **no match** and lets you abort or type the details by hand.
+
+For a new target it prompts for four connection parameters:
 
 | Prompt | Default | Notes |
 |---|---|---|
@@ -62,6 +64,8 @@ The script prompts for four connection parameters:
 | Username | — | Required |
 | SSH Port | `22` | Leave blank to use the default |
 | Host alias | IP address | Friendly name used in `~/.ssh/config` (e.g. `vulnbox`) |
+
+Before copying the key it lists the public keys in `id_ed25519.pub` and asks **which one(s) to copy** (default: the key matching your private key). Your `.pub` file is left untouched, and any key already on the target is skipped.
 
 After deployment you can reconnect with just:
 
@@ -84,5 +88,6 @@ SKIP_SSH=1 ./arch_auto.sh
 ## ⚠️ Critical Rules
 
 - **Local vs. Remote:** Always run these scripts from your **Local PC**.
+- **Remote sudo password:** the box setup runs `sudo` on the **target**. When prompted for a password, enter the **vulnbox's** — not your local machine's.
 - **Standardization:** Use the correct config for the target distro — do not copy Arch configs to a Debian/Fedora box.
 - **Permissions:** If you move scripts to a new machine, make them executable again: `chmod +x *.sh`
