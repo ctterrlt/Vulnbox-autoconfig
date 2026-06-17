@@ -21,6 +21,16 @@ echo -e "\n=== 2. DEPLOYING PAYLOAD ==="
 # The box may already have a Neovim config — only deploy ours if asked.
 read -rp "Deploy the Neovim config to ~/.config/nvim/init.lua on the target? (y/N) " DEPLOY_NVIM
 
+# Backups can be huge — opt in, and pick exactly what to archive (not always home).
+read -rp "Pull a backup from the target before finishing? (y/N) " DO_BACKUP
+BACKUP_PATHS=""
+if [[ $DO_BACKUP == [yY] ]]; then
+    DO_BACKUP=y
+    read -rp "Folder(s) to zip — space-separated absolute paths [whole home dir]: " BACKUP_PATHS
+else
+    DO_BACKUP=n
+fi
+
 cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload.sh
 #!/bin/bash
 set -euo pipefail
@@ -73,9 +83,16 @@ if [ -f /tmp/nvimconfig.lua ]; then
     mv /tmp/nvimconfig.lua ~/.config/nvim/init.lua
 fi
 
-# Backup home directory (exclude the zip itself using full-path glob)
-rm -f ~/backup.zip
-zip -r ~/backup.zip ~ -x "$HOME/backup.zip"
+# Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
+# via the ssh command below; an empty BACKUP_PATHS falls back to the home dir.
+if [ "${DO_BACKUP:-n}" = "y" ]; then
+    read -ra _backup_paths <<< "${BACKUP_PATHS:-$HOME}"
+    echo "Backing up: ${_backup_paths[*]}"
+    rm -f ~/backup.zip
+    zip -r ~/backup.zip "${_backup_paths[@]}" -x "$HOME/backup.zip"
+else
+    echo "Backup skipped (not requested)."
+fi
 
 echo "Deployment complete."
 PAYLOAD_EOF
@@ -93,10 +110,14 @@ scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh     "${TARGET_USER}@${TARGET_IP}:/
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "bash /tmp/setup.sh && rm /tmp/setup.sh"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' bash /tmp/setup.sh && rm /tmp/setup.sh"
 
-echo -e "\n=== 4. PULLING BACKUP ==="
-scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
+if [[ $DO_BACKUP == y ]]; then
+    echo -e "\n=== 4. PULLING BACKUP ==="
+    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
+else
+    echo -e "\n=== 4. BACKUP SKIPPED ==="
+fi
 
 echo -e "\n=== 5. LOGGING IN ==="
 ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
