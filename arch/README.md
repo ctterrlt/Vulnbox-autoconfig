@@ -54,7 +54,7 @@ Your configuration is decoupled from the deployment logic. Any changes to `zshco
 
 ## 🔌 Port & SSH Config
 
-First the script offers to **reuse a host already in `~/.ssh/config`** — pick one by number to prefill its IP/user/port, or press Enter to set up a new target. An entry that matches nothing (or a host with no user defined) reports a **no match** and lets you abort or type the details by hand.
+First the script offers to **reuse a host already in `~/.ssh/config`** — pick one by number to prefill its IP/user/port (then confirm it), or press Enter to set up a new target. An entry that matches nothing (or a host with no user defined) reports a **no match** and lets you abort or type the details by hand.
 
 For a new target it prompts for four connection parameters:
 
@@ -65,7 +65,7 @@ For a new target it prompts for four connection parameters:
 | SSH Port | `22` | Leave blank to use the default |
 | Host alias | IP address | Friendly name used in `~/.ssh/config` (e.g. `vulnbox`) |
 
-Before copying the key it lists the public keys in `id_ed25519.pub` and asks **which one(s) to copy** (default: the key matching your private key). Your `.pub` file is left untouched, and any key already on the target is skipped.
+Before copying the key it lists the public keys in `id_ed25519.pub` with your own key pre-selected, and lets you **confirm / add / remove** which one(s) to copy. Your `.pub` file is left untouched, and any key already on the target is skipped.
 
 After deployment you can reconnect with just:
 
@@ -77,7 +77,7 @@ The `~/.ssh/config` entry is written once and never overwritten on subsequent ru
 
 The deploy then asks whether to push the shared Neovim config (`nvimconfig.lua`) to `~/.config/nvim/init.lua`. Answer `y` to install Neovim (only if missing or outdated) and apply it; anything else leaves the box's editor setup untouched.
 
-Finally it asks whether to **pull a backup** before finishing (`y/N`). On `y` you choose which folder(s) to zip — space-separated absolute paths, or blank for the whole home dir — and the archive is pulled down as `backup_from_<IP>.zip`. On `N` nothing is zipped or pulled.
+Finally it asks whether to **pull a backup** before finishing (`y/N`). On `y` it lists the target's home so you can see what's there, then asks which folder(s) to zip — space-separated, each one a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank means the whole home dir. It echoes your selection to confirm (or re-enter), zips it, and pulls the archive down as `backup_from_<IP>.zip`. On `N` nothing is zipped or pulled.
 
 If your key is already deployed, skip key-gen and key-copy with:
 
