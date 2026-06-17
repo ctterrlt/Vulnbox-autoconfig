@@ -97,4 +97,4 @@ SKIP_SSH=1 ./fedora_auto.sh
 - **Remote sudo password:** the box setup runs `sudo` on the **target**. When prompted for a password, enter the **vulnbox's** — not your local machine's.
 - **Standardization:** Use the correct config for the target distro — do not copy Fedora configs to an Arch or Debian/Ubuntu box.
 - **Permissions:** If you move scripts to a new machine, make them executable again: `chmod +x *.sh`
-- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` may not be in the default Fedora repos. If the install fails, enable RPM Fusion or install them manually before running the script.
+- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` may not be in the default Fedora repos. The deploy installs the cosmetic extras **best-effort** and skips any that aren't found, so a missing package no longer aborts the run (`dnf5` otherwise fails the whole transaction). Enable RPM Fusion or install them manually if you want the ones your release lacks. (`neofetch` was dropped — it's discontinued and gone from Fedora's repos; the shell runs `fastfetch` instead.)

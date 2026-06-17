@@ -97,4 +97,4 @@ SKIP_SSH=1 ./debian_ubuntu_auto.sh
 - **Remote sudo password:** the box setup runs `sudo` on the **target**. When prompted for a password, enter the **vulnbox's** — not your local machine's.
 - **Standardization:** Use the correct config for the target distro — do not copy Debian/Ubuntu configs to an Arch or Fedora box.
 - **Permissions:** If you move scripts to a new machine, make them executable again: `chmod +x *.sh`
-- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` are not in the default `apt` repos. If the install fails, add their PPAs or install them manually before running the script.
+- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` aren't in every `apt` release. The deploy installs the cosmetic extras **best-effort** (one at a time) and simply skips any that aren't found — the rest of the setup still completes. Add a PPA or install them manually if your release lacks the ones you want. (`neofetch` was dropped — it's discontinued upstream; the shell runs `fastfetch` instead.)
