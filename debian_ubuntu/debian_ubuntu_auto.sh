@@ -18,6 +18,9 @@ fi
 # ── 5. GENERATE PAYLOAD ───────────────────────────────────────────────────────
 echo -e "\n=== 2. DEPLOYING PAYLOAD ==="
 
+# The box may already have a Neovim config — only deploy ours if asked.
+read -rp "Deploy the Neovim config to ~/.config/nvim/init.lua on the target? (y/N) " DEPLOY_NVIM
+
 cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload.sh
 #!/bin/bash
 set -euo pipefail
@@ -42,6 +45,14 @@ sudo chsh -s "$(which zsh)" "$USER"
 # Apply config
 mv /tmp/zshconfig_debian_ubuntu.conf ~/.zshrc
 
+# Apply Neovim config (only if it was transferred — user opted in)
+if [ -f /tmp/nvimconfig.lua ]; then
+    # apt installs neovim only if missing or upgradable; skips it if up to date
+    sudo apt install -y neovim
+    mkdir -p ~/.config/nvim
+    mv /tmp/nvimconfig.lua ~/.config/nvim/init.lua
+fi
+
 # Backup home directory (exclude the zip itself using full path)
 rm -f ~/backup.zip
 zip -r ~/backup.zip ~ -x "$HOME/backup.zip"
@@ -51,6 +62,12 @@ PAYLOAD_EOF
 
 # ── 5. TRANSFER & EXECUTE ─────────────────────────────────────────────────────
 scp -P "$TARGET_PORT" "$DIR/zshconfig_debian_ubuntu.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
+if [[ $DEPLOY_NVIM == [yY] ]]; then
+    scp -P "$TARGET_PORT" "$DIR/../nvimconfig.lua"        "${TARGET_USER}@${TARGET_IP}:/tmp/nvimconfig.lua"
+else
+    # Clear any stale copy from a previous run so the payload doesn't apply it
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nvimconfig.lua"
+fi
 scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh             "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
