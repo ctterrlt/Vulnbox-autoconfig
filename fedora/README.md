@@ -77,7 +77,9 @@ The `~/.ssh/config` entry is written once and never overwritten on subsequent ru
 
 The deploy then asks whether to push the shared Neovim config (`nvimconfig.lua`) to `~/.config/nvim/init.lua`. Answer `y` to install Neovim (only if missing or outdated) and apply it; anything else leaves the box's editor setup untouched.
 
-Finally it asks whether to **pull a backup** before finishing (`y/N`). On `y` it lists the target's home so you can see what's there, then asks which folder(s) to zip — space-separated, each one a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank means the whole home dir. It echoes your selection to confirm (or re-enter), zips it, and pulls the archive down as `backup_from_<IP>.zip`. On `N` nothing is zipped or pulled.
+It also asks whether to deploy the shared **git aliases** (`gitconfig.conf`) to the target's `~/.gitconfig`. On `y` the payload drops them in `~/.gitconfig_vulnbox` and links that via `include.path`; on `N` the target's git config is left alone.
+
+Finally it asks whether to **pull a backup** before finishing (`y/N`). On `y` it lists the target's home so you can see what's there, then asks which folder(s) to zip — space-separated, each one a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank means the whole home dir. It echoes your selection as the resolved path (e.g. `~/Immagini/`) to confirm (or re-enter), then asks where to save the archive locally (default your home dir) and pulls it there as `backup_from_<IP>.zip`. On `N` nothing is zipped or pulled.
 
 If your key is already deployed, skip key-gen and key-copy with:
 

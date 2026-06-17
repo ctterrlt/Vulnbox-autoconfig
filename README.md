@@ -57,12 +57,13 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
   import the git aliases/settings wholesale or pick them item by item.
 - **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch,
   Oh-My-Zsh, syntax highlighting and autosuggestions.
-- **Editor (opt-in):** prompts whether to install Neovim and deploy a shared
-  `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/` —
-  decline to leave the box's existing editor setup untouched.
-- **Opt-in backup:** choose whether to pull a backup and exactly which folder(s)
-  to zip — by home-relative name, `~` path, or absolute path (blank = whole home) —
-  or skip it entirely.
+- **Editor & git (opt-in):** prompts whether to install Neovim and deploy a shared
+  `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/`, and
+  separately whether to push the shared git aliases to the target's `~/.gitconfig` —
+  decline either to leave the box's existing setup untouched.
+- **Opt-in backup:** choose whether to pull a backup, exactly which folder(s) to
+  zip — by home-relative name, `~` path, or absolute path (blank = whole home) —
+  and where to save it locally (default `$HOME`); or skip it entirely.
 
 ### Deploy
 
@@ -77,9 +78,10 @@ each alias/setting). Pick the target distribution, then either **reuse a host
 already in `~/.ssh/config`** or enter a new IP, username, SSH port (blank = 22)
 and optional alias. Choose **which public key(s) to copy** (defaults to your own
 key), whether to deploy the Neovim config (decline to leave the box's existing one
-alone), and whether to pull a backup — if so, which folder(s) to zip (home-relative
-name, `~` path, or absolute; blank = whole home). The script writes the
-`~/.ssh/config` entry, sets up the key,
+alone), whether to deploy the shared git aliases to the target, and whether to pull
+a backup — if so, which folder(s) to zip (home-relative name, `~` path, or absolute;
+blank = whole home) and where to save it locally (default `$HOME`). The script writes
+the `~/.ssh/config` entry, sets up the key,
 installs zsh and tooling on the box, applies the config, optionally pulls the
 backup, and drops you into a live session.
 
