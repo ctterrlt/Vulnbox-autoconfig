@@ -151,19 +151,19 @@ echo "Deployment complete."
 PAYLOAD_EOF
 
 # ── 5. TRANSFER & EXECUTE ─────────────────────────────────────────────────────
-scp -P "$TARGET_PORT" "$DIR/zshconfig_debian_ubuntu.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
+scp -O -P "$TARGET_PORT" "$DIR/zshconfig_debian_ubuntu.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
 if [[ $DEPLOY_NVIM == [yY] ]]; then
-    scp -P "$TARGET_PORT" "$DIR/../nvimconfig.lua"        "${TARGET_USER}@${TARGET_IP}:/tmp/nvimconfig.lua"
+    scp -O -P "$TARGET_PORT" "$DIR/../nvimconfig.lua"        "${TARGET_USER}@${TARGET_IP}:/tmp/nvimconfig.lua"
 else
     # Clear any stale copy from a previous run so the payload doesn't apply it
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nvimconfig.lua"
 fi
 if [[ $DEPLOY_GIT == [yY] ]]; then
-    scp -P "$TARGET_PORT" "$DIR/../gitconfig.conf"        "${TARGET_USER}@${TARGET_IP}:/tmp/gitconfig.conf"
+    scp -O -P "$TARGET_PORT" "$DIR/../gitconfig.conf"        "${TARGET_USER}@${TARGET_IP}:/tmp/gitconfig.conf"
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/gitconfig.conf"
 fi
-scp -P "$TARGET_PORT" /tmp/vulnbox_payload.sh             "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
+scp -O -P "$TARGET_PORT" /tmp/vulnbox_payload.sh             "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
@@ -173,7 +173,7 @@ ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' B
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
     echo "Moving backup.zip to ${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
-    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
+    scp -O -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi

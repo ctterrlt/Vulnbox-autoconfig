@@ -26,5 +26,5 @@ read -rp "Enter target remote username: " TARGET_USER
 
 # ── Transfer & apply ──────────────────────────────────────────────────────────
 echo "Uploading config to ${TARGET_USER}@${TARGET_IP}..."
-scp "$CONF" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
+scp -O "$CONF" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_debian_ubuntu.conf"
 ssh "${TARGET_USER}@${TARGET_IP}" "mv /tmp/zshconfig_debian_ubuntu.conf ~/.zshrc && echo 'Config updated successfully.'"
