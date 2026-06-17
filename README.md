@@ -60,7 +60,8 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
 - **Editor (opt-in):** prompts whether to install Neovim and deploy a shared
   `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/` —
   decline to leave the box's existing editor setup untouched.
-- **Automatic backup:** zips the remote home directory and pulls it down locally.
+- **Opt-in backup:** choose whether to pull a backup and exactly which folder(s)
+  to zip (blank = the whole home dir) — or skip it entirely.
 
 ### Deploy
 
@@ -74,10 +75,11 @@ choose **all** (link the whole `gitconfig.conf`) or **item-per-item** (toggle
 each alias/setting). Pick the target distribution, then either **reuse a host
 already in `~/.ssh/config`** or enter a new IP, username, SSH port (blank = 22)
 and optional alias. Choose **which public key(s) to copy** (defaults to your own
-key) and whether to deploy the Neovim config (decline to leave the box's existing
-one alone). The script writes the `~/.ssh/config` entry, sets up the key, installs
-zsh and tooling on the box, applies the config, pulls a backup, and drops you into
-a live session.
+key), whether to deploy the Neovim config (decline to leave the box's existing one
+alone), and whether to pull a backup — if so, which folder(s) to zip (blank = the
+whole home dir). The script writes the `~/.ssh/config` entry, sets up the key,
+installs zsh and tooling on the box, applies the config, optionally pulls the
+backup, and drops you into a live session.
 
 > The remote setup runs `sudo` on the **target**, so any password it asks for is
 > the **vulnbox's**, not your local machine's — the script says so on screen.

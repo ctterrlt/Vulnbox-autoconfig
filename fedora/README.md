@@ -75,7 +75,9 @@ ssh vulnbox
 
 The `~/.ssh/config` entry is written once and never overwritten on subsequent runs.
 
-The deploy then asks one more question — whether to push the shared Neovim config (`nvimconfig.lua`) to `~/.config/nvim/init.lua`. Answer `y` to install Neovim (only if missing or outdated) and apply it; anything else leaves the box's editor setup untouched.
+The deploy then asks whether to push the shared Neovim config (`nvimconfig.lua`) to `~/.config/nvim/init.lua`. Answer `y` to install Neovim (only if missing or outdated) and apply it; anything else leaves the box's editor setup untouched.
+
+Finally it asks whether to **pull a backup** before finishing (`y/N`). On `y` you choose which folder(s) to zip — space-separated absolute paths, or blank for the whole home dir — and the archive is pulled down as `backup_from_<IP>.zip`. On `N` nothing is zipped or pulled.
 
 If your key is already deployed, skip key-gen and key-copy with:
 
