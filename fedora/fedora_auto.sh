@@ -93,12 +93,13 @@ set -euo pipefail
 echo ">>> sudo below wants the password of $(whoami)@$(hostname) — the REMOTE vulnbox, not your local PC."
 sudo -v
 
-# Install packages. zsh-syntax-highlighting and zsh-autosuggestions are managed as
-# Oh-My-Zsh plugins on Fedora — the conf handles this. Core packages go in first;
-# the cosmetic extras use dnf's --skip-unavailable so a package that's missing from
+# Install packages. Core first — including zsh-syntax-highlighting + zsh-autosuggestions,
+# which the deployed .zshrc sources from /usr/share (without them, typed commands show
+# no color). The cosmetic extras use dnf's --skip-unavailable so a package missing from
 # the repos (neofetch is discontinued, tty-clock isn't always packaged) is dropped
 # instead of aborting the whole transaction (dnf5 fails the lot otherwise).
-sudo dnf install -y zip zsh nano git curl openssh-server
+sudo dnf install -y zip zsh nano git curl openssh-server \
+    zsh-syntax-highlighting zsh-autosuggestions
 sudo dnf install -y --skip-unavailable fastfetch lsd tty-clock cmatrix
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
@@ -174,8 +175,15 @@ ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' B
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
-    echo "Moving backup.zip to ${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
-    scp $SCP_OPTS -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
+    # Don't clobber an existing archive — fall back to _1, _2, … if the name is taken.
+    BACKUP_FILE="${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
+    if [[ -e "$BACKUP_FILE" ]]; then
+        _i=1
+        while [[ -e "${BACKUP_DEST}/backup_from_${TARGET_IP}_${_i}.zip" ]]; do _i=$((_i + 1)); done
+        BACKUP_FILE="${BACKUP_DEST}/backup_from_${TARGET_IP}_${_i}.zip"
+    fi
+    echo "Moving backup.zip to ${BACKUP_FILE}"
+    scp $SCP_OPTS -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$BACKUP_FILE"
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi

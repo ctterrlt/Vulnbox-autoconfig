@@ -173,8 +173,15 @@ ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' B
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
-    echo "Moving backup.zip to ${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
-    scp $SCP_OPTS -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
+    # Don't clobber an existing archive — fall back to _1, _2, … if the name is taken.
+    BACKUP_FILE="${BACKUP_DEST}/backup_from_${TARGET_IP}.zip"
+    if [[ -e "$BACKUP_FILE" ]]; then
+        _i=1
+        while [[ -e "${BACKUP_DEST}/backup_from_${TARGET_IP}_${_i}.zip" ]]; do _i=$((_i + 1)); done
+        BACKUP_FILE="${BACKUP_DEST}/backup_from_${TARGET_IP}_${_i}.zip"
+    fi
+    echo "Moving backup.zip to ${BACKUP_FILE}"
+    scp $SCP_OPTS -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$BACKUP_FILE"
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi
