@@ -19,6 +19,9 @@ fi
 # ── Ensure all scripts are executable ─────────────────────────────────────────
 find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \;
 
+# Shared selection helper (review_selection: list selected → confirm/add/remove).
+. "$SCRIPT_DIR/selectlib.sh"
+
 # ── Global Git Configuration Setup ────────────────────────────────────────────
 
 echo ""
@@ -42,17 +45,20 @@ if [[ -f "$GIT_CONF_SRC" ]]; then
                 # Per-item: read each entry's value from the source via git itself
                 # (no manual ini parsing — keeps complex values like 'lg' intact),
                 # then apply only the chosen ones to ~/.gitconfig.
-                echo "Choose which entries to import:"
                 mapfile -t GIT_KEYS < <(git config -f "$GIT_CONF_SRC" --list --name-only)
-                imported=0
+                GIT_OPTS=()
                 for key in "${GIT_KEYS[@]}"; do
-                    val=$(git config -f "$GIT_CONF_SRC" --get "$key")
-                    read -r -p "  import  ${key} = ${val}  ? (y/N) " pick
-                    if [[ "$pick" == [yY] ]]; then
-                        git config --global "$key" "$val"
-                        echo "    [+] ${key}"
-                        imported=$((imported + 1))
-                    fi
+                    GIT_OPTS+=("${key} = $(git config -f "$GIT_CONF_SRC" --get "$key")")
+                done
+                GIT_SEL=()   # start empty — add the entries you want
+                review_selection GIT_OPTS GIT_SEL "entry"
+                imported=0
+                for n in "${GIT_SEL[@]:-}"; do
+                    [[ -z "$n" ]] && continue
+                    key="${GIT_KEYS[$((n - 1))]}"
+                    git config --global "$key" "$(git config -f "$GIT_CONF_SRC" --get "$key")"
+                    echo "    [+] ${key}"
+                    imported=$((imported + 1))
                 done
                 echo "[SUCCESS] Imported ${imported} Git entr$([[ $imported -eq 1 ]] && echo y || echo ies) into ~/.gitconfig."
             else

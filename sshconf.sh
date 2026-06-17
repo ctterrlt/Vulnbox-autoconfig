@@ -2,6 +2,10 @@
 # Shared SSH setup — sourced by each distro's auto.sh.
 # Sets: TARGET_IP, TARGET_USER, TARGET_PORT, HOST_ALIAS
 
+# Shared selection helper (review_selection: list selected → confirm/add/remove).
+_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_SELF_DIR/selectlib.sh"
+
 # ── INPUT ─────────────────────────────────────────────────────────────────────
 echo -e "\n=== LOCAL NETWORK INTERFACES ==="
 ip -br addr
@@ -32,8 +36,13 @@ if [[ -f "$SSH_CONF" ]]; then
                 read -rp "    [a]bort, or [m]anually enter IP/user? (a/m) [m]: " NOMATCH
                 if [[ "$NOMATCH" == [aA] ]]; then echo "Aborted."; exit 1; fi
             else
-                REUSED_HOST=1
-                echo "[OK] Reusing '${HOST_ALIAS}' -> ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}"
+                echo "[OK] Selected '${HOST_ALIAS}' -> ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}"
+                read -rp "    Use this host? [Y]es / [n]o (enter target manually): " HOST_OK
+                if [[ "$HOST_OK" == [nN] ]]; then
+                    echo "    -> entering target manually."
+                else
+                    REUSED_HOST=1
+                fi
             fi
         elif [[ -n "$HOST_PICK" ]]; then
             # Non-empty input that isn't a valid list number.
@@ -88,31 +97,31 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
     mapfile -t KEY_LINES < <(grep -vE '^[[:space:]]*$' "$PUBFILE")
 
     echo -e "\n=== SELECT KEY(S) TO COPY ==="
-    GENUINE_IDX=1
+    # Build display labels and the default selection (key matching the private key),
+    # then hand off to the shared review/confirm/add/remove loop.
+    KEY_OPTS=(); GENUINE_IDX=1
     for i in "${!KEY_LINES[@]}"; do
         body="$(awk '{print $1" "$2}' <<< "${KEY_LINES[$i]}")"
         comment="$(awk '{print $3}' <<< "${KEY_LINES[$i]}")"
-        mark=""
         if [[ "$body" == "$GENUINE_KEY" ]]; then
-            mark="  <- your login key (matches id_ed25519)"
+            KEY_OPTS+=("${comment:-<no comment>}  <- your login key (matches id_ed25519)")
             GENUINE_IDX=$((i + 1))
+        else
+            KEY_OPTS+=("${comment:-<no comment>}")
         fi
-        printf "  %d) %s%s\n" "$((i + 1))" "${comment:-<no comment>}" "$mark"
     done
-    read -rp "Which key(s) to copy? space-separated numbers, or 'all' [${GENUINE_IDX}]: " KEY_SEL
-    KEY_SEL=${KEY_SEL:-$GENUINE_IDX}
+    KEY_SEL=("$GENUINE_IDX")               # default: your own login key
+    review_selection KEY_OPTS KEY_SEL "key"
 
-    SEL_PUB="$(mktemp)"
+    # Name it *.pub: `ssh-copy-id -i <file>` appends ".pub" when the file lacks
+    # that suffix, so a bare mktemp name makes it look for a nonexistent ".pub".
+    SEL_PUB="$(mktemp --suffix=.pub)"
     trap 'rm -f "$SEL_PUB"' EXIT
-    if [[ "$KEY_SEL" == "all" ]]; then
-        printf '%s\n' "${KEY_LINES[@]}" > "$SEL_PUB"
-    else
-        for n in $KEY_SEL; do
-            if [[ "$n" =~ ^[0-9]+$ ]] && (( n >= 1 && n <= ${#KEY_LINES[@]} )); then
-                printf '%s\n' "${KEY_LINES[$((n - 1))]}" >> "$SEL_PUB"
-            fi
-        done
-    fi
+    : > "$SEL_PUB"
+    for n in "${KEY_SEL[@]:-}"; do
+        [[ -z "$n" ]] && continue
+        printf '%s\n' "${KEY_LINES[$((n - 1))]}" >> "$SEL_PUB"
+    done
 
     if [[ ! -s "$SEL_PUB" ]]; then
         echo "[ERR] No valid key selected — skipping key copy."

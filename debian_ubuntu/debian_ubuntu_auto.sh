@@ -26,7 +26,30 @@ read -rp "Pull a backup from the target before finishing? (y/N) " DO_BACKUP
 BACKUP_PATHS=""
 if [[ $DO_BACKUP == [yY] ]]; then
     DO_BACKUP=y
-    read -rp "Folder(s) to zip — space-separated absolute paths [whole home dir]: " BACKUP_PATHS
+    # Show what's in the target's home so you can choose folders by name (lsd if present).
+    echo "--- contents of the target's home directory ---"
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
+        'cd ~ && { command -v lsd >/dev/null 2>&1 && lsd -lah || ls -lah; }' || true
+    echo "-----------------------------------------------"
+    echo "Paths may be: a name under home (Immagini), a ~ path (~/Immagini), or an"
+    echo "absolute path (/var/www, /etc/nginx); a trailing slash is fine."
+    while true; do
+        read -rp "Folder(s) to zip — e.g. Immagini, ~/Immagini, or /abs/path (space-separated), blank = whole home: " BACKUP_PATHS
+        if [[ -z "$BACKUP_PATHS" ]]; then
+            read -rp "No folders selected — zip the WHOLE home dir? ([y]es / [r]e-enter / [n]o backup) " ans
+            case "$ans" in
+                [yY]) echo "  -> backing up the whole home directory."; break ;;
+                [rR]) continue ;;
+                *)    DO_BACKUP=n; echo "  -> backup cancelled."; break ;;
+            esac
+        else
+            echo "Selected for backup:"
+            for _p in $BACKUP_PATHS; do echo "    - $_p"; done
+            read -rp "Proceed with these? ([y]es / [r]e-enter) " ans
+            if [[ "$ans" == [rR] ]]; then continue; fi
+            break
+        fi
+    done
 else
     DO_BACKUP=n
 fi
@@ -72,7 +95,15 @@ fi
 # Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
 # via the ssh command below; an empty BACKUP_PATHS falls back to the home dir.
 if [ "${DO_BACKUP:-n}" = "y" ]; then
+    cd ~   # so bare names (e.g. Immagini) resolve relative to home
     read -ra _backup_paths <<< "${BACKUP_PATHS:-$HOME}"
+    # Expand a leading ~ / ~/ ourselves — it came from a variable, so the shell won't.
+    for _i in "${!_backup_paths[@]}"; do
+        case "${_backup_paths[$_i]}" in
+            "~")   _backup_paths[$_i]="$HOME" ;;
+            "~/"*) _backup_paths[$_i]="$HOME/${_backup_paths[$_i]#\~/}" ;;
+        esac
+    done
     echo "Backing up: ${_backup_paths[*]}"
     rm -f ~/backup.zip
     zip -r ~/backup.zip "${_backup_paths[@]}" -x "$HOME/backup.zip"
@@ -100,7 +131,7 @@ ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' B
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
-    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "$DIR/backup_from_${TARGET_IP}.zip"
+    scp -P "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}:~/backup.zip" "~/backup_from_${TARGET_IP}.zip"
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi
