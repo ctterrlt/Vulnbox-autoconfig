@@ -16,8 +16,9 @@ to do fast under pressure:
 
 ```text
 .
-├── auto.sh                          # entry point — pick a distro and deploy
-├── sshconf.sh                       # shared SSH setup (prompts, ~/.ssh/config, keys)
+├── auto.sh                          # entry point — git import + distro menu
+├── sshconf.sh                       # shared SSH setup (host reuse, scp mode, key copy)
+├── selectlib.sh                     # shared confirm/add/remove selection helper
 ├── gitconfig.conf                   # shared git aliases
 ├── nvimconfig.lua                   # shared Neovim config (→ ~/.config/nvim/init.lua)
 │
@@ -63,7 +64,8 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
   decline either to leave the box's existing setup untouched.
 - **Opt-in backup:** choose whether to pull a backup, exactly which folder(s) to
   zip — by home-relative name, `~` path, or absolute path (blank = whole home) —
-  and where to save it locally (default `$HOME`); or skip it entirely.
+  and where to save it locally (default `$HOME`, never overwriting an older backup);
+  or skip it entirely.
 
 ### Deploy
 
@@ -72,26 +74,24 @@ chmod +x auto.sh
 ./auto.sh
 ```
 
-First you're asked whether to import the shared git config — answer `y`, then
-choose **all** (link the whole `gitconfig.conf`) or **item-per-item** (toggle
-each alias/setting). Pick the target distribution, then either **reuse a host
-already in `~/.ssh/config`** or enter a new IP, username, SSH port (blank = 22)
-and optional alias. Choose **which public key(s) to copy** (defaults to your own
-key), the **scp transfer mode** (legacy `-O` by default — most compatible with
-vulnboxes whose `sshd` lacks the SFTP subsystem), whether to deploy the Neovim
-config (decline to leave the box's existing one
-alone), whether to deploy the shared git aliases to the target, and whether to pull
-a backup — if so, which folder(s) to zip (home-relative name, `~` path, or absolute;
-blank = whole home) and where to save it locally (default `$HOME`). The script writes
-the `~/.ssh/config` entry, sets up the key,
-installs zsh and tooling on the box, applies the config, optionally pulls the
-backup, and drops you into a live session.
+`auto.sh` first offers to import the shared git aliases into *your own* `~/.gitconfig`
+(all at once via `include.path`, or item-by-item), then shows the distro menu.
+Picking a distro runs that folder's deploy, which walks you through, in order:
+
+1. **SSH target** — reuse a host already in `~/.ssh/config` or enter a new IP / user / port (blank = 22) / alias.
+2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
+3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected).
+4. **Neovim**, **git aliases**, and **backup** — each opt-in (`y/N`).
+
+It then installs zsh + tooling, sets zsh as the shell, applies the config, optionally
+pulls the backup (saved as `backup_from_<IP>.zip`, never overwriting an existing one),
+and drops you into a live session. Full per-prompt detail lives in each distro's README.
 
 > The remote setup runs `sudo` on the **target**, so any password it asks for is
 > the **vulnbox's**, not your local machine's — the script says so on screen.
 
 > Already have your key on the target? Skip key generation and copy with
-> `SKIP_SSH=1 ./auto.sh` — the connection prompts still run, they're needed for the
+> `SKIP_SSH=1 ./auto.sh` — the other prompts still run, they're needed for the
 > rest of the deploy.
 
 ### Maintain
@@ -101,7 +101,8 @@ backup, and drops you into a live session.
 | Shell aliases, themes, plugins | `<distro>/zshconfig_<distro>.conf` |
 | Neovim config (`~/.config/nvim/init.lua`) | `nvimconfig.lua` (shared by all distros) |
 | Git aliases | `gitconfig.conf` |
-| SSH setup (keys, `~/.ssh/config`) | `sshconf.sh` (shared by all distros) |
+| SSH setup (host reuse, key copy, scp mode) | `sshconf.sh` (shared by all distros) |
+| Selection prompts (keys, git items) | `selectlib.sh` (shared by all distros) |
 
 Configuration is decoupled from deploy logic, so the next `./auto.sh` simply
 re-pushes your edits. Per-distro details live in each distribution's README.

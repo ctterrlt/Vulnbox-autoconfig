@@ -1,100 +1,63 @@
-# 🐘 Debian/Ubuntu-Based Vulnbox AutoConfig
+# 🐘 Debian/Ubuntu Vulnbox AutoConfig
 
-This module handles the automated deployment of Zsh and CTF tooling on Debian/Ubuntu targets.
+Automated deploy of zsh + CTF tooling to a **Debian/Ubuntu** target over SSH.
+**Run from your local PC — never on the target.**
 
-## 🚀 Deployment Methods
+## Deploy
 
-### 1. Master Deployment (Recommended)
-
-This is the fastest way to get set up. It uses the root `auto.sh` script to handle everything across any distribution.
-
-1. Navigate to the project root.
-2. Run `./auto.sh`.
-3. Select **Debian/Ubuntu** from the menu.
-
-### 2. Direct Deployment (Manual)
-
-If you are already inside the `debian_ubuntu/` folder and want to deploy **only** to a Debian/Ubuntu target, you can bypass the master menu.
-
-**Prerequisites:**
-
-1. Ensure `zshconfig_debian_ubuntu.conf` is configured to your liking.
-2. Make the script executable: `chmod +x debian_ubuntu_auto.sh`
-
-**Command:**
+**Master (recommended)** — from the repo root:
 
 ```bash
-./debian_ubuntu_auto.sh
+./auto.sh        # then pick "Debian/Ubuntu"
 ```
 
----
+`auto.sh` first offers to import the shared git aliases into *your* `~/.gitconfig`, then hands off to this distro's script.
 
-## 🔄 Re-pushing Config Only
-
-If you only changed `zshconfig_debian_ubuntu.conf` and don't need a full redeployment, use:
+**Direct** — bypass the master menu (and the operator git-import step):
 
 ```bash
-./zshchangeconf_debian_ubuntu.sh
+cd debian_ubuntu && ./debian_ubuntu_auto.sh
 ```
 
-This uploads the config and applies it to `~/.zshrc` on the remote target without reinstalling packages.
+Set `SKIP_SSH=1` to skip key generation/copy when your key is already on the box (the remaining prompts still run — they're needed downstream).
 
----
+## What it asks, in order
 
-## 🛠 Configuration Management
+1. **SSH target** — reuse a host already in `~/.ssh/config` (pick by number → prefilled via `ssh -G` → confirm; an unknown pick or a host with no user → *no match* → abort or type it by hand), or enter a new IP / user / port (blank = `22`) / alias. The `~/.ssh/config` entry is written once and never overwritten.
+2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP. Legacy avoids `subsystem request failed on channel 0` on boxes whose `sshd` lacks the SFTP subsystem (e.g. right after an OpenSSH upgrade mid-deploy).
+3. **Keys** — lists the public keys in `~/.ssh/id_ed25519.pub` with your own pre-selected. Type a number to toggle it, `a`/`r` + numbers to force add/remove, Enter to confirm. Your `.pub` is never modified, and keys already on the target are skipped.
+4. **Neovim** (`y/N`) — install Neovim (only if missing/outdated) and drop `nvimconfig.lua` at `~/.config/nvim/init.lua`.
+5. **Git aliases** (`y/N`) — copy `gitconfig.conf` to the target's `~/.gitconfig_vulnbox` and link it via `include.path`.
+6. **Backup** (`y/N`) — lists the target's home, then asks which folder(s) to zip: a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank = whole home. Your picks are echoed as resolved paths (`~/Immagini/`) to confirm or re-enter. Finally pick where to save it locally (default `$HOME`); it's pulled as `backup_from_<IP>.zip`, with `_1`, `_2`, … appended so an existing file is never overwritten.
 
-- To change aliases, themes, or plugins: edit `debian_ubuntu/zshconfig_debian_ubuntu.conf`.
-- To change the Neovim config: edit the root `nvimconfig.lua` — shared across all distros. The deploy asks before applying it.
-- To change install logic (e.g. adding a package): edit `debian_ubuntu/debian_ubuntu_auto.sh`.
-- To change SSH setup (prompts, key gen, key copy, `~/.ssh/config`): edit the root `sshconf.sh` — shared across all distros.
+> The remote setup runs `sudo` **on the target** — any password it asks for is the **vulnbox's**, not your local machine's. The script says so on screen.
 
-Your configuration is decoupled from the deployment logic. Any changes to `zshconfig_debian_ubuntu.conf` are automatically pushed to the remote target on the next deployment.
+## What it installs
 
----
+Installs (via `apt`) zsh, Oh-My-Zsh, sets zsh as the login shell, and applies `zshconfig_debian_ubuntu.conf` as `~/.zshrc`. Core packages plus the cosmetic extras `fastfetch lsd tty-clock cmatrix` (best-effort — a missing one is skipped, never fatal), and `zsh-syntax-highlighting` + `zsh-autosuggestions` so typed commands are colorized. Then drops you into a live session; reconnect any time with `ssh <alias>`.
 
-## 🔌 Port & SSH Config
+## Other entry points
 
-First the script offers to **reuse a host already in `~/.ssh/config`** — pick one by number to prefill its IP/user/port (then confirm it), or press Enter to set up a new target. An entry that matches nothing (or a host with no user defined) reports a **no match** and lets you abort or type the details by hand.
+- **Re-push config only** (no reinstall): `./zshchangeconf_debian_ubuntu.sh` — uploads `zshconfig_debian_ubuntu.conf` and applies it to `~/.zshrc`.
+- **Standalone manual install** (run ON the box you're already sitting on): `./zshinstall_debian_ubuntu.sh`.
 
-For a new target it prompts for four connection parameters:
+## Maintain
 
-| Prompt | Default | Notes |
-|---|---|---|
-| Target IP | — | Required |
-| Username | — | Required |
-| SSH Port | `22` | Leave blank to use the default |
-| Host alias | IP address | Friendly name used in `~/.ssh/config` (e.g. `vulnbox`) |
+| To change… | Edit… |
+|---|---|
+| Shell aliases / prompt / plugins | `zshconfig_debian_ubuntu.conf` |
+| Packages / install logic | `debian_ubuntu_auto.sh` |
+| Neovim config | root `nvimconfig.lua` (shared) |
+| Git aliases | root `gitconfig.conf` (shared) |
+| SSH / key / scp prompts | root `sshconf.sh` (shared) |
+| Selection prompts (keys, git items) | root `selectlib.sh` (shared) |
 
-Before copying the key it lists the public keys in `id_ed25519.pub` with your own key pre-selected, and lets you **confirm / add / remove** which one(s) to copy (type a number to toggle it, `a`/`r` + numbers to force add/remove, Enter to confirm). Your `.pub` file is left untouched, and any key already on the target is skipped.
+Config is decoupled from deploy logic — the next run simply re-pushes your edits.
 
-It then asks whether to use the **legacy scp protocol (`-O`)** — the default and most compatible. Modern `scp` uses the SFTP subsystem, which can fail with `subsystem request failed on channel 0` on boxes whose `sshd` lacks it (e.g. right after an OpenSSH upgrade mid-deploy); answer `n` only if you specifically want SFTP.
+## Critical rules
 
-After deployment you can reconnect with just:
-
-```bash
-ssh vulnbox
-```
-
-The `~/.ssh/config` entry is written once and never overwritten on subsequent runs.
-
-The deploy then asks whether to push the shared Neovim config (`nvimconfig.lua`) to `~/.config/nvim/init.lua`. Answer `y` to install Neovim (only if missing or outdated) and apply it; anything else leaves the box's editor setup untouched.
-
-It also asks whether to deploy the shared **git aliases** (`gitconfig.conf`) to the target's `~/.gitconfig`. On `y` the payload drops them in `~/.gitconfig_vulnbox` and links that via `include.path`; on `N` the target's git config is left alone.
-
-Finally it asks whether to **pull a backup** before finishing (`y/N`). On `y` it lists the target's home so you can see what's there, then asks which folder(s) to zip — space-separated, each one a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank means the whole home dir. It echoes your selection as the resolved path (e.g. `~/Immagini/`) to confirm (or re-enter), then asks where to save the archive locally (default your home dir) and pulls it there as `backup_from_<IP>.zip`. On `N` nothing is zipped or pulled.
-
-If your key is already deployed, skip key-gen and key-copy with:
-
-```bash
-SKIP_SSH=1 ./debian_ubuntu_auto.sh
-```
-
----
-
-## ⚠️ Critical Rules
-
-- **Local vs. Remote:** Always run these scripts from your **Local PC**.
-- **Remote sudo password:** the box setup runs `sudo` on the **target**. When prompted for a password, enter the **vulnbox's** — not your local machine's.
-- **Standardization:** Use the correct config for the target distro — do not copy Debian/Ubuntu configs to an Arch or Fedora box.
-- **Permissions:** If you move scripts to a new machine, make them executable again: `chmod +x *.sh`
-- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` aren't in every `apt` release. The deploy installs the cosmetic extras **best-effort** (one at a time) and simply skips any that aren't found — the rest of the setup still completes. Add a PPA or install them manually if your release lacks the ones you want. (`neofetch` was dropped — it's discontinued upstream; the shell runs `fastfetch` instead.)
+- **Local only:** run from your local PC; the script warns if it detects a container.
+- **Remote sudo password** = the vulnbox's, not your local machine's.
+- **Right config for the distro:** don't deploy Debian/Ubuntu configs to an Arch/Fedora box.
+- **Make scripts executable** after moving them: `chmod +x *.sh`.
+- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` aren't in every `apt` release. The deploy installs the cosmetic extras **best-effort** (one at a time) and skips any that aren't found — the rest of the setup still completes. Add a PPA or install them manually if your release lacks the ones you want. (`neofetch` was dropped — discontinued upstream; the shell runs `fastfetch` instead.)
