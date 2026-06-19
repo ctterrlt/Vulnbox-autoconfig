@@ -1,19 +1,24 @@
-ssh_on_rsa.py
-*.claude/
-*.env*
-*CLAUDE.md
-backup_from_*.zip
-__pycache__/
-*.pyc
+**/ssh_on_rsa.py
+# Extra public keys to optionally push to a target (may hold teammates' keys)
+**/extra_keys.pub
+**/*.claude/**/*
+**/.env*
+**/CLAUDE.md
+**/backup_from_*.zip
+**/__pycache__/**/*
+**/*.pyc
 # Self-signed certs minted locally by python_exploits/tls
-tls_server.crt
-tls_server.key
+**/tls_server.crt
+**/tls_server.key
+# tls.py --daemon runtime artifacts
+**/tls.pid
+**/tls_daemon.log
 # Runtime artifacts from converting/noobexfil_solve.py (any dir)
-flag.zip
-flag_out/
-*.pcapng
-*.pcap
+**/flag.zip
+**/flag_out/**/*
+**/*.pcapng
+**/*.pcap
 # Python virtualenvs / build output (any dir)
-venv/
-.venv/
-build/
+**/venv/**/*
+**/.venv/**/*
+**/build/**/*
