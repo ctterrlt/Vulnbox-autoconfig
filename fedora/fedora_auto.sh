@@ -27,6 +27,31 @@ read -rp "Deploy the Neovim config to ~/.config/nvim/init.lua on the target? (y/
 # Optionally push the shared git aliases to the target's ~/.gitconfig.
 read -rp "Deploy the git aliases (gitconfig.conf) to the target's ~/.gitconfig? (y/N) " DEPLOY_GIT
 
+# The TLS bridge runs ON the vulnbox (unlike the xfarm exploits) — offer to ship it.
+read -rp "Deploy the TLS interception bridge (python_exploits/tls) to ~/tls_bridge on the target? (y/N) " DEPLOY_TLS
+
+# After everything else, optionally clone this toolkit's own dev branch onto the box.
+read -rp "Also clone this toolkit's dev branch into ~/<repo> on the target once setup finishes? (y/N) " DEPLOY_DEV
+DEV_REPO_URL=""
+DEV_REPO_NAME=""
+DEV_REPO_BRANCH="dev"
+if [[ $DEPLOY_DEV == [yY] ]]; then
+    # Derive the clone URL from this checkout's origin; rewrite an SSH remote to its
+    # HTTPS form so the vulnbox needs no GitHub key of its own.
+    DEV_REPO_URL=$(git -C "$DIR" remote get-url origin 2>/dev/null || true)
+    if [[ $DEV_REPO_URL == git@*:* ]]; then
+        _hp=${DEV_REPO_URL#git@}; DEV_REPO_URL="https://${_hp%%:*}/${_hp#*:}"
+    elif [[ $DEV_REPO_URL == ssh://git@* ]]; then
+        DEV_REPO_URL="https://${DEV_REPO_URL#ssh://git@}"
+    fi
+    if [[ -z $DEV_REPO_URL ]]; then
+        echo "  Couldn't determine this repo's origin URL — skipping the dev clone."
+    else
+        DEV_REPO_NAME=$(basename "$DEV_REPO_URL" .git)
+        echo "  Will clone $DEV_REPO_URL (branch $DEV_REPO_BRANCH) into ~/$DEV_REPO_NAME on the target after setup."
+    fi
+fi
+
 # Backups can be huge — opt in, and pick exactly what to archive (not always home).
 read -rp "Pull a backup from the target before finishing? (y/N) " DO_BACKUP
 BACKUP_PATHS=""
@@ -131,6 +156,17 @@ if [ -f /tmp/gitconfig.conf ]; then
     echo "Git aliases linked into ~/.gitconfig."
 fi
 
+# Deploy the TLS interception bridge (only if transferred — user opted in). Its
+# runtime is stdlib-only, so there's nothing to install; just drop the folder in
+# the home dir and make its scripts executable. Configure/run on the box with:
+#   cd ~/tls_bridge && ./auto_tls.sh && python3 tls.py
+if [ -d /tmp/tls_bridge ]; then
+    rm -rf ~/tls_bridge
+    mv /tmp/tls_bridge ~/tls_bridge
+    chmod +x ~/tls_bridge/*.sh ~/tls_bridge/tls.py 2>/dev/null || true
+    echo "TLS bridge deployed to ~/tls_bridge — configure with: cd ~/tls_bridge && ./auto_tls.sh"
+fi
+
 # Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
 # via the ssh command below; an empty BACKUP_PATHS falls back to the home dir.
 if [ "${DO_BACKUP:-n}" = "y" ]; then
@@ -150,6 +186,23 @@ else
     echo "Backup skipped (not requested)."
 fi
 
+# Clone this toolkit's dev branch onto the box, only when requested. Runs last — git
+# is installed by now. DEV_REPO_* are injected on the ssh line; the URL is HTTPS so
+# the box needs no GitHub key. An existing checkout is updated, never clobbered.
+if [ -n "${DEV_REPO_URL:-}" ]; then
+    if [ -d "$HOME/${DEV_REPO_NAME}/.git" ]; then
+        echo "~/${DEV_REPO_NAME} is already a git repo — updating ${DEV_REPO_BRANCH}."
+        git -C "$HOME/${DEV_REPO_NAME}" fetch origin "${DEV_REPO_BRANCH}" \
+            && git -C "$HOME/${DEV_REPO_NAME}" checkout "${DEV_REPO_BRANCH}" \
+            && git -C "$HOME/${DEV_REPO_NAME}" pull --ff-only \
+            || echo "  (update failed — leaving the existing checkout untouched)"
+    else
+        echo "Cloning ${DEV_REPO_URL} (branch ${DEV_REPO_BRANCH}) into ~/${DEV_REPO_NAME}..."
+        git clone -b "${DEV_REPO_BRANCH}" "${DEV_REPO_URL}" "$HOME/${DEV_REPO_NAME}" \
+            || echo "  (clone failed — check network/branch name)"
+    fi
+fi
+
 echo "Deployment complete."
 PAYLOAD_EOF
 
@@ -166,12 +219,17 @@ if [[ $DEPLOY_GIT == [yY] ]]; then
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/gitconfig.conf"
 fi
+# Always clear any stale bridge from a previous run; recopy the whole folder on opt-in.
+ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -rf /tmp/tls_bridge"
+if [[ $DEPLOY_TLS == [yY] ]]; then
+    scp $SCP_OPTS -r -P "$TARGET_PORT" "$DIR/../python_exploits/tls" "${TARGET_USER}@${TARGET_IP}:/tmp/tls_bridge"
+fi
 scp $SCP_OPTS -P "$TARGET_PORT" /tmp/vulnbox_payload.sh      "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
 
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' bash /tmp/setup.sh && rm /tmp/setup.sh"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
