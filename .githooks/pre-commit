@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#
+# pre-commit — keep the repo-root requirements.txt in sync with every
+# */requirements.txt. Whenever a commit touches any sub-requirements.txt (or
+# anything else), regenerate the aggregated root file and stage it so it never
+# drifts. Wired in via:  git config core.hooksPath .githooks  (auto.sh does this).
+#
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+if [ -f "$ROOT/scripts/gen_requirements.py" ]; then
+    python3 "$ROOT/scripts/gen_requirements.py"
+    git add "$ROOT/requirements.txt"
+fi
