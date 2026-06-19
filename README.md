@@ -22,7 +22,7 @@ to do fast under pressure:
 ├── selectlib.sh                     # shared confirm/add/remove selection helper
 ├── gitconfig.conf                   # shared git aliases
 ├── nvimconfig.lua                   # shared Neovim config (→ ~/.config/nvim/init.lua)
-├── extra_keys.pub.example           # tracked template → seeded to extra_keys.pub (gitignored) on first run
+├── extra_keys.pub                   # untracked template
 ├── requirements.txt                 # AUTO-GENERATED union of every sub-requirements.txt
 ├── scripts/gen_requirements.py      # rebuilds requirements.txt (run by the hook + auto.sh)
 ├── .githooks/pre-commit             # keeps requirements.txt in sync on every commit
