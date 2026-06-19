@@ -81,7 +81,7 @@ Picking a distro runs that folder's deploy, which walks you through, in order:
 1. **SSH target** — reuse a host already in `~/.ssh/config` or enter a new IP / user / port (blank = 22) / alias.
 2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
 3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected).
-4. **Neovim**, **git aliases**, and **backup** — each opt-in (`y/N`).
+4. **Neovim**, **git aliases**, **TLS bridge**, **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key).
 
 It then installs zsh + tooling, sets zsh as the shell, applies the config, optionally
 pulls the backup (saved as `backup_from_<IP>.zip`, never overwriting an existing one),
