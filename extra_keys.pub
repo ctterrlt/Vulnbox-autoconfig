@@ -1,0 +1,11 @@
+# extra_keys.pub — GITIGNORED from now on so no keys will be visible here. Extra public keys to optionally push to a target's
+# authorized_keys, on top of the ones picked from ~/.ssh/id_ed25519.pub.
+#
+# One public key per line, normal OpenSSH format, e.g.:
+#   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... teammate@laptop
+#   ssh-rsa     AAAAB3NzaC1yc2EAAAADAQAB... ops@box
+# Blank lines and lines starting with '#' are ignored.
+#
+# During ./auto.sh's SSH setup, after you pick keys from id_ed25519.pub, it offers
+# to copy some or all of the keys listed here too (same confirm/add/remove picker).
+# Add your teammates' / extra keys below this line:
