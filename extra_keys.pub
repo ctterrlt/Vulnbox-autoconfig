@@ -9,3 +9,8 @@
 # During ./auto.sh's SSH setup, after you pick keys from id_ed25519.pub, it offers
 # to copy some or all of the keys listed here too (same confirm/add/remove picker).
 # Add your teammates' / extra keys below this line:
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINQJqIY033ZbdLcs03Eh0SWzLu8dwCuphzeKoKFkjLkF Chry@Chry
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBrMi26rlDzDRYBIypR5XOx3jvObIqO1b4y/BpT1cqit lory@Lory
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICkAefgmYFMJtFLAV88q7L/NZQUF7blcZzrt6BR7/PMy andrea@archlinux
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILBAM904meN+m9Cv+KglL/ti6jbzcV+mcIIG7KPuI9ph lupo47@lupo-hp
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGT+MIuF1PFByn1GclXbD9hF3EMVsbWikQWUC3FCXAws michele@debian
