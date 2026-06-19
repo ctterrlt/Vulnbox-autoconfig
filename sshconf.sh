@@ -201,14 +201,29 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
         if ! grep -qF "$GENUINE_KEY" "$SEL_PUB"; then
             echo "[WARN] Your own login key was not selected — later SSH steps may prompt for a password."
         fi
+        _nsel=$(grep -cvE '^[[:space:]]*$' "$SEL_PUB")
         echo
-        echo "Copying selected key(s) to ${TARGET_USER}@${TARGET_IP}..."
+        echo "Copying ${_nsel} selected key(s) to ${TARGET_USER}@${TARGET_IP}..."
         echo "(If prompted for a password here, it's the REMOTE login password of ${TARGET_USER}@${TARGET_IP} — not your local machine.)"
         # Append each selected key to authorized_keys, skipping any already there.
         # We do this by hand instead of ssh-copy-id, whose -i handling of a
         # standalone .pub (no matching private key) varies across OpenSSH versions.
-        ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" '
-            umask 077; mkdir -p ~/.ssh
+        #
+        # The keys are carried INSIDE the remote command as base64, not over
+        # ssh's stdin: with stdin-fed keys, a host-key confirmation or password
+        # prompt (esp. on a fresh box / OpenSSH 10.x) can swallow the key data so
+        # the remote loop receives nothing — that's why "no keys" got copied. So:
+        #   -n                                  : stdin = /dev/null, nothing to swallow
+        #   -o StrictHostKeyChecking=accept-new : auto-trust a new vulnbox, no prompt
+        # The remote decodes the blob to a temp file and reads it via redirect (not a
+        # pipe), so the `added` counter survives (a `… | while` runs in a subshell).
+        KEYS_B64="$(base64 "$SEL_PUB" | tr -d '\n')"
+        ssh -n -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+            -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
+            "KEYS_B64='$KEYS_B64'; "'
+            umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys
+            _tmpf="$(mktemp 2>/dev/null || echo "$HOME/.ssh/.newkeys.$$")"
+            printf "%s" "$KEYS_B64" | base64 -d > "$_tmpf"
             added=0
             while IFS= read -r _k; do
                 [ -z "$_k" ] && continue
@@ -217,9 +232,15 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
                 fi
                 printf "%s\n" "$_k" >> ~/.ssh/authorized_keys
                 added=$((added + 1))
-            done
+            done < "$_tmpf"
+            rm -f "$_tmpf"
             chmod 600 ~/.ssh/authorized_keys 2>/dev/null || true
-            echo "  ${added} new key(s) added to authorized_keys."
-        ' < "$SEL_PUB"
+            echo "  ${added} new key(s) added to authorized_keys (the rest were already present)."
+        '
+        _rc=$?
+        if [[ "$_rc" -ne 0 ]]; then
+            echo "[ERR] Key copy over SSH failed (exit ${_rc}) — NO keys were copied."
+            echo "      Check that ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT} is reachable and the password was correct, then re-run."
+        fi
     fi
 fi
