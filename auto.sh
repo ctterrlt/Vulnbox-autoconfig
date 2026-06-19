@@ -19,6 +19,22 @@ fi
 # ── Ensure all scripts are executable ─────────────────────────────────────────
 find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \;
 
+# ── Keep the aggregated root requirements.txt fresh + wire its auto-update hook ─
+# scripts/gen_requirements.py rebuilds requirements.txt as the union of every
+# sub-requirements.txt; the .githooks/pre-commit hook reruns it on each commit.
+if git -C "$SCRIPT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+    git -C "$SCRIPT_DIR" config core.hooksPath .githooks 2>/dev/null || true
+fi
+python3 "$SCRIPT_DIR/scripts/gen_requirements.py" 2>/dev/null || true
+
+# Seed the gitignored extra_keys.pub from its tracked template on first run, so the
+# file always exists locally after a clone (your keys stay out of git — only the
+# .example template is committed).
+if [ ! -f "$SCRIPT_DIR/extra_keys.pub" ] && [ -f "$SCRIPT_DIR/extra_keys.pub.example" ]; then
+    cp "$SCRIPT_DIR/extra_keys.pub.example" "$SCRIPT_DIR/extra_keys.pub"
+    echo "[OK] Created extra_keys.pub from the template — add extra public keys there (gitignored)."
+fi
+
 # Shared selection helper (review_selection: list selected → confirm/add/remove).
 . "$SCRIPT_DIR/selectlib.sh"
 
@@ -94,8 +110,8 @@ echo "========================================"
 echo "    VULNBOX MASTER DEPLOYMENT CENTER    "
 echo "========================================"
 
-PS3="Select target distribution: "
-options=("Arch" "Debian/Ubuntu" "Fedora" "Quit")
+PS3="Select an option: "
+options=("Arch" "Debian/Ubuntu" "Fedora" "Install/update ExploitFarm tooling (exploitfarm/digger/firegex)" "Quit")
 
 select opt in "${options[@]}"; do
     case $opt in
@@ -110,6 +126,12 @@ select opt in "${options[@]}"; do
         "Fedora")
             "$SCRIPT_DIR/fedora/fedora_auto.sh"
             break
+            ;;
+        "Install/update ExploitFarm tooling (exploitfarm/digger/firegex)")
+            # Robust installer — never aborts auto.sh even if it errors.
+            "$SCRIPT_DIR/python_exploits/pwnzerotti.sh" || true
+            # Back to the menu so you can then deploy a distro or quit.
+            continue
             ;;
         "Quit")
             exit 0

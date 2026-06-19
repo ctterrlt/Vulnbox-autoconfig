@@ -6,7 +6,8 @@
 # Core packages first; cosmetic extras best-effort so a missing/dead one (neofetch
 # is discontinued, fastfetch/tty-clock aren't in every release) can't abort the install.
 sudo apt update
-sudo apt install -y zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh-client
+# php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
+sudo apt install -y zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh-client php
 for _pkg in fastfetch lsd tty-clock cmatrix; do
     sudo apt install -y "$_pkg" || echo "  (skipped $_pkg — not in repos)"
 done

@@ -68,12 +68,40 @@ echo -e "\n=== SSH CONFIG ==="
 mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
 SSH_CONF="$HOME/.ssh/config"
 touch "$SSH_CONF"
-if ! grep -q "^Host ${HOST_ALIAS}$" "$SSH_CONF" 2>/dev/null; then
-    printf '\nHost %s\n    HostName %s\n    User %s\n    Port %s\n    IdentityFile ~/.ssh/id_ed25519\n' \
-        "$HOST_ALIAS" "$TARGET_IP" "$TARGET_USER" "$TARGET_PORT" >> "$SSH_CONF"
-    echo "[OK] Added '${HOST_ALIAS}' -> ${TARGET_IP} to ~/.ssh/config"
+
+if [[ "$REUSED_HOST" == "1" ]]; then
+    # Picked an existing host on purpose — leave its config entry untouched.
+    echo "[OK] Reusing existing '${HOST_ALIAS}' from ~/.ssh/config."
 else
-    echo "[OK] '${HOST_ALIAS}' already in ~/.ssh/config — skipping."
+    # New target: write the entry. If the alias already exists, the old code silently
+    # skipped (so a reused alias kept its stale IP/user/port) — now we ask to overwrite.
+    _write_host=1
+    if grep -qiE "^[[:space:]]*Host[[:space:]]+${HOST_ALIAS}([[:space:]]|\$)" "$SSH_CONF" 2>/dev/null; then
+        read -rp "Host '${HOST_ALIAS}' already exists in ~/.ssh/config — overwrite it? [y/N]: " _ovw
+        if [[ "${_ovw:-}" == [yY] ]]; then
+            # Drop the existing 'Host <alias>' block (its Host line + following lines,
+            # up to the next Host entry), then append the fresh one below.
+            _tmp="$(mktemp)"
+            awk -v alias="$HOST_ALIAS" '
+                tolower($1)=="host" {
+                    skip=0
+                    for (i=2;i<=NF;i++) if ($i==alias) skip=1
+                    if (skip) next
+                }
+                skip!=1 { print }
+            ' "$SSH_CONF" > "$_tmp" && cat "$_tmp" > "$SSH_CONF"
+            rm -f "$_tmp"
+            echo "[OK] Replacing old '${HOST_ALIAS}' entry with ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}."
+        else
+            _write_host=0
+            echo "[OK] Keeping the existing '${HOST_ALIAS}' entry — ~/.ssh/config not modified."
+        fi
+    fi
+    if [[ "$_write_host" == "1" ]]; then
+        printf '\nHost %s\n    HostName %s\n    User %s\n    Port %s\n    IdentityFile ~/.ssh/id_ed25519\n' \
+            "$HOST_ALIAS" "$TARGET_IP" "$TARGET_USER" "$TARGET_PORT" >> "$SSH_CONF"
+        echo "[OK] Wrote '${HOST_ALIAS}' -> ${TARGET_IP} to ~/.ssh/config"
+    fi
 fi
 
 # ── SCP TRANSFER PROTOCOL ─────────────────────────────────────────────────────
@@ -137,6 +165,35 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
         [[ -z "$n" ]] && continue
         printf '%s\n' "${KEY_LINES[$((n - 1))]}" >> "$SEL_PUB"
     done
+
+    # Then optionally pull more keys from a gitignored extra-keys file (e.g.
+    # teammates' keys you keep out of git). One public key per line; blank lines
+    # and lines starting with '#' are ignored. Same confirm/add/remove selector —
+    # pick some or all. Selected keys are appended to the same SEL_PUB, so the one
+    # SSH copy below pushes everything (the remote side still skips duplicates).
+    EXTRA_KEYS_FILE="$_SELF_DIR/extra_keys.pub"
+    if [[ -f "$EXTRA_KEYS_FILE" ]]; then
+        mapfile -t EXTRA_LINES < <(grep -vE '^[[:space:]]*(#|$)' "$EXTRA_KEYS_FILE")
+        if (( ${#EXTRA_LINES[@]} > 0 )); then
+            echo -e "\n=== EXTRA KEYS FILE ==="
+            echo "Found $EXTRA_KEYS_FILE with ${#EXTRA_LINES[@]} key(s)."
+            read -rp "Also copy key(s) from this file to the target? [y/N]: " _use_extra
+            if [[ "$_use_extra" == [yY] ]]; then
+                EXTRA_OPTS=()
+                for _line in "${EXTRA_LINES[@]}"; do
+                    _type="$(awk '{print $1}' <<< "$_line")"
+                    _comment="$(awk '{print $3}' <<< "$_line")"
+                    EXTRA_OPTS+=("${_comment:-<no comment>} (${_type:-key})")
+                done
+                EXTRA_SEL=()   # default: none selected — add some, or all
+                review_selection EXTRA_OPTS EXTRA_SEL "extra key"
+                for n in "${EXTRA_SEL[@]:-}"; do
+                    [[ -z "$n" ]] && continue
+                    printf '%s\n' "${EXTRA_LINES[$((n - 1))]}" >> "$SEL_PUB"
+                done
+            fi
+        fi
+    fi
 
     if [[ ! -s "$SEL_PUB" ]]; then
         echo "[ERR] No valid key selected — skipping key copy."

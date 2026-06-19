@@ -6,7 +6,8 @@
 # (neofetch is discontinued, tty-clock isn't always packaged) is dropped instead of
 # aborting the install.
 sudo dnf update -y
-sudo dnf install -y zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh-clients
+# php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
+sudo dnf install -y zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh-clients php
 sudo dnf install -y --skip-unavailable fastfetch lsd tty-clock cmatrix
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 sudo chsh -s "$(which zsh)" "$USER"

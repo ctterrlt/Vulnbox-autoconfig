@@ -15,95 +15,12 @@ fi
 # ── 2-4. SSH SETUP ────────────────────────────────────────────────────────────
 . "$DIR/../sshconf.sh"
 
-# ── 5. GENERATE PAYLOAD ───────────────────────────────────────────────────────
-echo -e "\n=== 2. DEPLOYING PAYLOAD ==="
-
-# The box may already have a Neovim config — only deploy ours if asked.
-read -rp "Deploy the Neovim config to ~/.config/nvim/init.lua on the target? (y/N) " DEPLOY_NVIM
-
-# Optionally push the shared git aliases to the target's ~/.gitconfig.
-read -rp "Deploy the git aliases (gitconfig.conf) to the target's ~/.gitconfig? (y/N) " DEPLOY_GIT
-
-# The TLS bridge runs ON the vulnbox (unlike the xfarm exploits) — offer to ship it.
-read -rp "Deploy the TLS interception bridge (python_exploits/tls) to ~/tls_bridge on the target? (y/N) " DEPLOY_TLS
-
-# After everything else, optionally clone this toolkit's own dev branch onto the box.
-read -rp "Also clone this toolkit's dev branch into ~/<repo> on the target once setup finishes? (y/N) " DEPLOY_DEV
-DEV_REPO_URL=""
-DEV_REPO_NAME=""
-DEV_REPO_BRANCH="dev"
-if [[ $DEPLOY_DEV == [yY] ]]; then
-    # Derive the clone URL from this checkout's origin; rewrite an SSH remote to its
-    # HTTPS form so the vulnbox needs no GitHub key of its own.
-    DEV_REPO_URL=$(git -C "$DIR" remote get-url origin 2>/dev/null || true)
-    if [[ $DEV_REPO_URL == git@*:* ]]; then
-        _hp=${DEV_REPO_URL#git@}; DEV_REPO_URL="https://${_hp%%:*}/${_hp#*:}"
-    elif [[ $DEV_REPO_URL == ssh://git@* ]]; then
-        DEV_REPO_URL="https://${DEV_REPO_URL#ssh://git@}"
-    fi
-    if [[ -z $DEV_REPO_URL ]]; then
-        echo "  Couldn't determine this repo's origin URL — skipping the dev clone."
-    else
-        DEV_REPO_NAME=$(basename "$DEV_REPO_URL" .git)
-        echo "  Will clone $DEV_REPO_URL (branch $DEV_REPO_BRANCH) into ~/$DEV_REPO_NAME on the target after setup."
-    fi
-fi
-
-# Backups can be huge — opt in, and pick exactly what to archive (not always home).
-read -rp "Pull a backup from the target before finishing? (y/N) " DO_BACKUP
-BACKUP_PATHS=""
-BACKUP_DEST="$HOME"
-if [[ $DO_BACKUP == [yY] ]]; then
-    DO_BACKUP=y
-    # Show what's in the target's home so you can choose folders by name (lsd if present).
-    echo "--- contents of the target's home directory ---"
-    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
-        'cd ~ && { command -v lsd >/dev/null 2>&1 && lsd -lah || ls -lah; }' || true
-    echo "-----------------------------------------------"
-    echo "Paths may be: a name under home (Immagini), a ~ path (~/Immagini), or an"
-    echo "absolute path (/var/www, /etc/nginx); a trailing slash is fine."
-    while true; do
-        read -rp "Folder(s) to zip — e.g. Immagini, ~/Immagini, or /abs/path (space-separated), blank = whole home: " BACKUP_PATHS
-        if [[ -z "$BACKUP_PATHS" ]]; then
-            read -rp "No folders selected — zip the WHOLE home dir? ([y]es / [r]e-enter / [n]o backup) " ans
-            case "$ans" in
-                [yY]) echo "  -> backing up the whole home directory."; break ;;
-                [rR]) continue ;;
-                *)    DO_BACKUP=n; echo "  -> backup cancelled."; break ;;
-            esac
-        else
-            # Normalize bare names to ~/name and show where each resolves on the target.
-            _norm=""
-            for _p in $BACKUP_PATHS; do
-                case "$_p" in
-                    /*|"~"|"~/"*) _q="$_p" ;;
-                    *)            _q="~/$_p" ;;
-                esac
-                _norm+="${_norm:+ }$_q"
-            done
-            BACKUP_PATHS="$_norm"
-            echo "Selected for backup (on the target):"
-            for _p in $BACKUP_PATHS; do
-                case "$_p" in */) echo "    - $_p" ;; *) echo "    - $_p/" ;; esac
-            done
-            read -rp "Proceed with these? [Y]es (Enter) / [r]e-enter: " ans
-            if [[ "$ans" == [rR] ]]; then continue; fi
-            break
-        fi
-    done
-    if [[ $DO_BACKUP == y ]]; then
-        echo
-        read -rp "Where should the pulled backup be saved locally? [${HOME}]: " BACKUP_DEST
-        BACKUP_DEST="${BACKUP_DEST:-$HOME}"
-        case "$BACKUP_DEST" in
-            "~")   BACKUP_DEST="$HOME" ;;
-            "~/"*) BACKUP_DEST="$HOME/${BACKUP_DEST#\~/}" ;;
-        esac
-        mkdir -p "$BACKUP_DEST"
-    fi
-else
-    DO_BACKUP=n
-fi
+# ── 5. LOCAL DEPS + DEPLOYMENT PROMPTS (shared across all distros) ────────────
+# The local Python-deps install and every "what to deploy" prompt live in one
+# shared file so the three <distro>_auto.sh stay in sync (only the package install
+# / payload below is per-distro). It sets DEPLOY_NVIM/_GIT/_TLS, DEV_REPO_*,
+# DO_BACKUP, BACKUP_PATHS and BACKUP_DEST for the payload.
+. "$DIR/../deployconf.sh"
 
 cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload.sh
 #!/bin/bash
@@ -136,8 +53,9 @@ fi
 # Install packages via yay (handles both official and AUR). Core first, then the
 # cosmetic extras best-effort, so a package that's missing or renamed in the repos
 # can't abort the whole deploy.
+# php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
 yay -Syu --noconfirm --needed \
-    zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh
+    zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh php
 for _pkg in fastfetch lsd tty-clock cmatrix; do
     yay -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
 done
