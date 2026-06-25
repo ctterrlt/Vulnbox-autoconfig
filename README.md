@@ -91,11 +91,13 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
 - **sbin on PATH:** the deployed `.zshrc` prepends `/usr/local/sbin /usr/sbin /sbin`
   if missing, so admin tools (`ip`, `ss`, `iptables`, …) work on minimal distros
   like antiX that leave sbin off a normal user's PATH.
-- **Keep your shell as root:** make **root** use the same zsh setup, so `sudo su` /
-  `su` / `sudo -i` keep your prompt, aliases and plugins instead of dropping to a bare
-  bash. Idempotent and reversible — it `chsh`'s root to zsh, installs Oh-My-Zsh for
-  root if missing, and symlinks `/root/.zshrc` to the target user's `~/.zshrc` so future
-  edits stay in sync. Used two ways: run `./root_shell.sh` (or `./root_shell.sh <user>`
+- **Keep your config as root:** make **root** mirror your whole shell config, so
+  `sudo su` / `su` / `sudo -i` keep your prompt, aliases, plugins **and** your
+  nano/git/nvim/ssh config instead of dropping to a bare bash with defaults. Idempotent
+  and reversible — it `chsh`'s root to zsh, installs Oh-My-Zsh for root if missing,
+  **symlinks** your `~/.zshrc`/`.nanorc`/`.gitconfig`/`nvim` into `/root` (so edits stay
+  in sync), and **copies** your `~/.ssh` config + keys to `/root/.ssh` (ssh won't use a
+  config it doesn't own). Used two ways: run `./root_shell.sh` (or `./root_shell.sh <user>`
   when you're already root) to fix a machine's local root, **and** the deploy ships it
   to the **vulnbox** (opt-in, default yes) so the target's root gets it too — skipped
   automatically when you deploy as root, and you're never left in a root shell.
