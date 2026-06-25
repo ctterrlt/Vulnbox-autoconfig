@@ -18,10 +18,13 @@ to do fast under pressure:
 .
 ├── auto.sh                          # entry point — git import + deps refresh + distro/tooling menu
 ├── sshconf.sh                       # shared SSH setup (host reuse, scp mode, key copy)
+├── root_shell.sh                    # make root use your zsh too, so `sudo su` keeps your config
 ├── deployconf.sh                    # shared local-deps + "what to deploy" prompts (sourced by every distro)
 ├── selectlib.sh                     # shared confirm/add/remove selection helper
 ├── gitconfig.conf                   # shared git aliases
 ├── nvimconfig.lua                   # shared Neovim config (→ ~/.config/nvim/init.lua)
+├── nanorc                           # shared nano config (opt-in → ~/.nanorc)
+├── konsolerc · konsole.profile      # shared Konsole config (opt-in → ~/.config + ~/.local/share/konsole)
 ├── extra_keys.pub                   # untracked template
 ├── requirements.txt                 # AUTO-GENERATED union of every sub-requirements.txt
 ├── scripts/gen_requirements.py      # rebuilds requirements.txt (run by the hook + auto.sh)
@@ -77,6 +80,25 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
   `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/`, and
   separately whether to push the shared git aliases to the target's `~/.gitconfig` —
   decline either to leave the box's existing setup untouched.
+- **nano & Konsole config (opt-in):** optionally drop a shared `~/.nanorc` (line
+  numbers, syntax highlight, sane defaults) and/or a Konsole config + profile
+  (`~/.config/konsolerc` + `~/.local/share/konsole/`). Konsole isn't installed —
+  the files just sit ready if it's present (vulnboxes are usually headless). The
+  konsolerc shortcuts are a static baseline; the deployed `.zshrc` also **live-syncs**
+  Konsole's `[Shortcuts]` from an `Action=Key` text file you maintain
+  (`~/Documents/konsole/shortcuts.txt`, `~/Documenti/…`, or `KONSOLE_SHORTCUTS=`),
+  re-applying it on the next shell whenever you edit it.
+- **sbin on PATH:** the deployed `.zshrc` prepends `/usr/local/sbin /usr/sbin /sbin`
+  if missing, so admin tools (`ip`, `ss`, `iptables`, …) work on minimal distros
+  like antiX that leave sbin off a normal user's PATH.
+- **Keep your shell as root:** make **root** use the same zsh setup, so `sudo su` /
+  `su` / `sudo -i` keep your prompt, aliases and plugins instead of dropping to a bare
+  bash. Idempotent and reversible — it `chsh`'s root to zsh, installs Oh-My-Zsh for
+  root if missing, and symlinks `/root/.zshrc` to the target user's `~/.zshrc` so future
+  edits stay in sync. Used two ways: run `./root_shell.sh` (or `./root_shell.sh <user>`
+  when you're already root) to fix a machine's local root, **and** the deploy ships it
+  to the **vulnbox** (opt-in, default yes) so the target's root gets it too — skipped
+  automatically when you deploy as root, and you're never left in a root shell.
 - **Opt-in backup:** choose whether to pull a backup, exactly which folder(s) to
   zip — by home-relative name, `~` path, or absolute path (blank = whole home) —
   and where to save it locally (default `$HOME`, never overwriting an older backup);
@@ -99,7 +121,7 @@ Picking a distro runs that folder's deploy, which walks you through, in order:
 2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
 3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected); then, if a gitignored `extra_keys.pub` exists at the repo root, optionally copy some or all of those extra keys too.
 4. **Local Python deps** (`y/N`) — optionally `pip install` the aggregated root `requirements.txt` on **this** machine (your operator PC, where the xfarm exploits run — *not* the vulnbox).
-5. **Neovim**, **git aliases**, **TLS bridge**, **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key).
+5. **Neovim**, **git aliases**, **TLS bridge**, **nano config**, **Konsole config**, **target root shell** (default yes — give the box's root your zsh too), **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key).
 
 Steps 4–5 (and the backup prompts) live in the shared **`deployconf.sh`**, sourced by
 all three distro scripts so they stay identical — only the package install itself is
@@ -122,8 +144,10 @@ into a live session. Full per-prompt detail lives in each distro's README.
 | Shell aliases, themes, plugins | `<distro>/zshconfig_<distro>.conf` |
 | Neovim config (`~/.config/nvim/init.lua`) | `nvimconfig.lua` (shared by all distros) |
 | Git aliases | `gitconfig.conf` |
+| nano config (`~/.nanorc`) | `nanorc` (shared by all distros) |
+| Konsole config (`~/.config/konsolerc` + profile) | `konsolerc` / `konsole.profile` (shared by all distros) |
 | SSH setup (host reuse, key copy, scp mode) | `sshconf.sh` (shared by all distros) |
-| Deploy prompts (local deps, nvim/git/tls/dev, backup) | `deployconf.sh` (shared by all distros) |
+| Deploy prompts (local deps, nvim/git/tls/nano/konsole/dev, backup) | `deployconf.sh` (shared by all distros) |
 | Selection prompts (keys, git items) | `selectlib.sh` (shared by all distros) |
 | Aggregated Python deps | a project's own `requirements.txt` — the root one is auto-generated, never edit it |
 

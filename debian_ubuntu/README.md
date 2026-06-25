@@ -30,16 +30,19 @@ Set `SKIP_SSH=1` to skip key generation/copy when your key is already on the box
 5. **Neovim** (`y/N`) — install Neovim (only if missing/outdated) and drop `nvimconfig.lua` at `~/.config/nvim/init.lua`.
 6. **Git aliases** (`y/N`) — copy `gitconfig.conf` to the target's `~/.gitconfig_vulnbox` and link it via `include.path`.
 7. **TLS bridge** (`y/N`, default no) — copy the whole `python_exploits/tls` folder to `~/tls_bridge` on the target (the bridge is meant to run ON the vulnbox). Nothing is installed — its runtime is stdlib-only; configure and start it on the box with `cd ~/tls_bridge && ./auto_tls.sh && python3 tls.py` (add `-d` to keep it running after you close the terminal — see the bridge's README).
-8. **Dev checkout** (`y/N`, default no) — once setup finishes, clone this toolkit's own `dev` branch onto the target into `~/<repo>` (repo name taken from your `origin`, e.g. `~/Vulnbox-autoconfig`). The clone URL is derived from `origin` and rewritten to HTTPS so the box needs no GitHub key; an existing checkout is updated (`fetch` / `checkout` / `pull --ff-only`), never clobbered.
-9. **Backup** (`y/N`) — lists the target's home, then asks which folder(s) to zip: a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank = whole home. Your picks are echoed as resolved paths (`~/Immagini/`) to confirm or re-enter. Finally pick where to save it locally (default `$HOME`); it's pulled as `backup_from_<IP>.zip`, with `_1`, `_2`, … appended so an existing file is never overwritten.
+8. **nano config** (`y/N`, default no) — drop the shared `nanorc` to the target's `~/.nanorc` (per-user — no root, read after `/etc/nanorc` so it overrides without clobbering it): line numbers, syntax highlight, sane defaults.
+9. **Konsole config** (`y/N`, default no) — drop `konsolerc` → `~/.config/konsolerc` and the profile → `~/.local/share/konsole/Vulnbox.profile`. Konsole isn't installed (vulnboxes are usually headless) — the files are harmless if absent, ready if it's present. The konsolerc shortcuts are a static baseline; the deployed `.zshrc` also **live-syncs** Konsole's `[Shortcuts]` from an `Action=Key` text file you maintain (`~/Documents/konsole/shortcuts.txt`, `~/Documenti/…`, or `KONSOLE_SHORTCUTS=`), re-applying it on the next shell whenever it changes.
+10. **Target root shell** (`Y/n`, **default yes**) — also give the box's **root** this zsh setup (ships `root_shell.sh`, run by the payload as `sudo bash root_shell.sh $USER`): chsh root → zsh, Oh-My-Zsh for root, and `/root/.zshrc` symlinked to your `~/.zshrc`, so `sudo su` / `su -` on the box keep your config instead of a bare bash. Skipped automatically if you deploy *as* root. You're never left in a root shell — the deploy still logs you in as your normal user at the end.
+11. **Dev checkout** (`y/N`, default no) — once setup finishes, clone this toolkit's own `dev` branch onto the target into `~/<repo>` (repo name taken from your `origin`, e.g. `~/Vulnbox-autoconfig`). The clone URL is derived from `origin` and rewritten to HTTPS so the box needs no GitHub key; an existing checkout is updated (`fetch` / `checkout` / `pull --ff-only`), never clobbered.
+12. **Backup** (`y/N`) — lists the target's home, then asks which folder(s) to zip: a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank = whole home. Your picks are echoed as resolved paths (`~/Immagini/`) to confirm or re-enter. Finally pick where to save it locally (default `$HOME`); it's pulled as `backup_from_<IP>.zip`, with `_1`, `_2`, … appended so an existing file is never overwritten.
 
-> Steps **4–9** are driven by the shared **`deployconf.sh`** (sourced by every distro's deploy script right after the SSH setup), so all three distros prompt identically — only the package install itself is per-distro.
+> Steps **4–12** are driven by the shared **`deployconf.sh`** (sourced by every distro's deploy script right after the SSH setup), so all three distros prompt identically — only the package install itself is per-distro.
 
 > The remote setup runs `sudo` **on the target** — any password it asks for is the **vulnbox's**, not your local machine's. The script says so on screen.
 
 ## What it installs
 
-Installs (via `apt`) zsh, Oh-My-Zsh, sets zsh as the login shell, and applies `zshconfig_debian_ubuntu.conf` as `~/.zshrc`. Core packages — including **`php`** (runtime for the PHP-based web exploits) and `zsh-syntax-highlighting` + `zsh-autosuggestions` so typed commands are colorized — plus the cosmetic extras `fastfetch lsd tty-clock cmatrix` (best-effort: a missing one is skipped, never fatal). Then drops you into a live session; reconnect any time with `ssh <alias>`.
+Installs (via `apt`) zsh, Oh-My-Zsh, sets zsh as the login shell, and applies `zshconfig_debian_ubuntu.conf` as `~/.zshrc`. Core packages — including **`php`** (runtime for the PHP-based web exploits) and `zsh-syntax-highlighting` + `zsh-autosuggestions` so typed commands are colorized — plus the cosmetic extras `fastfetch lsd tty-clock cmatrix` (best-effort: a missing one is skipped, never fatal). The deployed `.zshrc` also prepends the sbin dirs (`/usr/local/sbin /usr/sbin /sbin`) to `PATH` when missing, so admin tools (`ip`, `ss`, `iptables`, `fdisk`, …) resolve on minimal distros — e.g. **antiX** — that leave sbin off a normal user's PATH. Then drops you into a live session; reconnect any time with `ssh <alias>`.
 
 ## Other entry points
 
@@ -54,8 +57,12 @@ Installs (via `apt`) zsh, Oh-My-Zsh, sets zsh as the login shell, and applies `z
 | Packages / install logic | `debian_ubuntu_auto.sh` |
 | Neovim config | root `nvimconfig.lua` (shared) |
 | Git aliases | root `gitconfig.conf` (shared) |
+| nano config (`~/.nanorc`) | root `nanorc` (shared) |
+| Konsole config (`~/.config/konsolerc` + profile) | root `konsolerc` / `konsole.profile` (shared) |
+| sbin on PATH / shell behaviour | `zshconfig_debian_ubuntu.conf` |
 | SSH / key / scp prompts | root `sshconf.sh` (shared) |
-| Deploy prompts (local deps, nvim/git/tls/dev, backup) | root `deployconf.sh` (shared) |
+| Deploy prompts (local deps, nvim/git/tls/nano/konsole/rootshell/dev, backup) | root `deployconf.sh` (shared) |
+| Target root shell (make the box's root use zsh) | root `root_shell.sh` (shipped + run by the payload) |
 | Selection prompts (keys, git items) | root `selectlib.sh` (shared) |
 
 Config is decoupled from deploy logic — the next run simply re-pushes your edits.
