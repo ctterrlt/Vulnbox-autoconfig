@@ -1,0 +1,36 @@
+# Shared Konsole config — deployed to ~/.config/konsolerc on the target (opt-in).
+#
+# Konsole is KDE's terminal. We DON'T install it (vulnboxes are usually headless),
+# we only drop this config so that IF konsole is — or later gets — installed, it
+# starts with the profile and shortcuts below. The companion profile ships as
+# ~/.local/share/konsole/Vulnbox.profile (referenced by DefaultProfile here).
+[Desktop Entry]
+DefaultProfile=Vulnbox.profile
+
+[General]
+ConfigVersion=1
+
+[MainWindow]
+MenuBar=Disabled
+ToolBarsMovable=Disabled
+
+[SaveHistory Settings]
+Recent URLs[$e]=file:$HOME
+
+# Custom key shortcuts. Edit/extend to taste — these are the common ones.
+# These are the STATIC baseline. For a live, auto-updating list, drop an
+# "Action=Key" file at ~/Documents/konsole/shortcuts.txt (or ~/Documenti/…, or
+# point KONSOLE_SHORTCUTS at one): the deployed ~/.zshrc re-syncs this [Shortcuts]
+# section from it on the next shell whenever that file changes.
+[Shortcuts]
+New Tab=Ctrl+Shift+T
+Close Tab=Ctrl+Shift+W
+Next Tab=Ctrl+PgDown
+Previous Tab=Ctrl+PgUp
+Split View Left/Right=Ctrl+(
+Split View Top/Bottom=Ctrl+)
+Copy=Ctrl+Shift+C
+Paste=Ctrl+Shift+V
+Find=Ctrl+Shift+F
+Clear Buffer and Reset=Ctrl+Shift+K
+Full Screen Mode=F11

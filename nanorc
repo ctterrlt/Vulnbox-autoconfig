@@ -1,0 +1,30 @@
+# Shared nano config — deployed to ~/.nanorc on the target (opt-in).
+#
+# Per-user ~/.nanorc is used (not the system-wide /etc/nanorc) because:
+#   * it needs no root and never clobbers the distro's own /etc/nanorc;
+#   * the path is the same on Arch / Debian / Fedora, so one file fits all.
+# nano reads ~/.nanorc after /etc/nanorc, so anything here overrides the system.
+
+# Pull in the distro's syntax-highlight definitions. Path is identical on
+# Arch/Debian/Fedora (/usr/share/nano). A glob that matches nothing is harmless;
+# nano just skips it. Some distros ship extra syntaxes in a subfolder.
+include "/usr/share/nano/*.nanorc"
+include "/usr/share/nano/extra/*.nanorc"
+
+set linenumbers          # show line numbers in the left margin
+set numbercolor cyan
+set constantshow         # always show the cursor position on the status bar
+set tabsize 4
+set tabstospaces         # insert spaces instead of a literal tab
+set autoindent           # keep the current indentation on a new line
+# NOTE: `set mouse` is deliberately NOT enabled. It makes nano grab mouse/wheel
+# events, which turns wheel-scroll into page jumps and breaks the terminal's own
+# click-drag-to-copy inside nano. Leave it off for sane scrolling/selection.
+set zap                  # let Backspace/Delete remove a whole selection at once
+
+# A little colour so it's readable on a fresh box.
+set titlecolor    brightwhite,blue
+set statuscolor   brightwhite,green
+set keycolor      cyan
+set functioncolor green
+set selectedcolor brightwhite,magenta
