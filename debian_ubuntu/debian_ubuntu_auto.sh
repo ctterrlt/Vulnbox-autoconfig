@@ -83,6 +83,41 @@ if [ -d /tmp/tls_bridge ]; then
     echo "TLS bridge deployed to ~/tls_bridge — configure with: cd ~/tls_bridge && ./auto_tls.sh"
 fi
 
+# Apply nano config (only if transferred — user opted in). Per-user ~/.nanorc needs
+# no root and is read after /etc/nanorc, so it overrides without clobbering it.
+if [ -f /tmp/nanorc ]; then
+    mv /tmp/nanorc ~/.nanorc
+    echo "nano config applied to ~/.nanorc."
+fi
+
+# Apply Konsole config (only if transferred — user opted in). We don't install
+# konsole (vulnboxes are usually headless) — just drop the files so they're ready
+# if konsole is/gets installed. konsolerc -> ~/.config/, profile -> ~/.local/share/.
+if [ -f /tmp/konsolerc ]; then
+    mkdir -p ~/.config
+    mv /tmp/konsolerc ~/.config/konsolerc
+    if [ -f /tmp/konsole.profile ]; then
+        mkdir -p ~/.local/share/konsole
+        mv /tmp/konsole.profile ~/.local/share/konsole/Vulnbox.profile
+    fi
+    echo "Konsole config applied (~/.config/konsolerc + Vulnbox profile)."
+fi
+
+# Give the box's root the SAME zsh setup (only if root_shell.sh was sent — opt-in,
+# default yes). Skipped when deploying AS root (root is then the login user we already
+# configured). root_shell.sh: chsh root -> zsh, install Oh-My-Zsh for root, and link
+# /root/.zshrc to this user's ~/.zshrc — so `sudo su` / `su -` on the box keep your
+# config. The deploy still finishes by logging you in as your normal user, so you're
+# never left in a root shell.
+if [ -f /tmp/root_shell.sh ]; then
+    if [ "$(id -u)" -ne 0 ]; then
+        sudo bash /tmp/root_shell.sh "$USER" || echo "  (root shell setup skipped/failed — continuing)"
+    else
+        echo "Deployed as root — root already configured; skipping root_shell.sh."
+    fi
+    rm -f /tmp/root_shell.sh
+fi
+
 # Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
 # via the ssh command below; an empty BACKUP_PATHS falls back to the home dir.
 if [ "${DO_BACKUP:-n}" = "y" ]; then
@@ -134,6 +169,22 @@ if [[ $DEPLOY_GIT == [yY] ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../gitconfig.conf"        "${TARGET_USER}@${TARGET_IP}:/tmp/gitconfig.conf"
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/gitconfig.conf"
+fi
+if [[ $DEPLOY_NANO == [yY] ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nanorc"         "${TARGET_USER}@${TARGET_IP}:/tmp/nanorc"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nanorc"
+fi
+if [[ $DEPLOY_KONSOLE == [yY] ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../konsolerc"       "${TARGET_USER}@${TARGET_IP}:/tmp/konsolerc"
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../konsole.profile" "${TARGET_USER}@${TARGET_IP}:/tmp/konsole.profile"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/konsolerc /tmp/konsole.profile"
+fi
+if [[ "${DEPLOY_ROOTSHELL:-Y}" != [nN] ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../root_shell.sh"   "${TARGET_USER}@${TARGET_IP}:/tmp/root_shell.sh"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/root_shell.sh"
 fi
 # Always clear any stale bridge from a previous run; recopy the whole folder on opt-in.
 ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -rf /tmp/tls_bridge"
