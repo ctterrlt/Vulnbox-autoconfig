@@ -6,8 +6,8 @@
 # payload). Runs in the caller's shell; it reads these from the caller:
 #   DIR, TARGET_IP, TARGET_USER, TARGET_PORT
 # and sets these for the payload that follows:
-#   INSTALL_REQS, DEPLOY_NVIM, DEPLOY_GIT, DEPLOY_TLS,
-#   DEV_REPO_URL / DEV_REPO_NAME / DEV_REPO_BRANCH,
+#   INSTALL_REQS, DEPLOY_NVIM, DEPLOY_GIT, DEPLOY_TLS, DEPLOY_NANO, DEPLOY_KONSOLE,
+#   DEPLOY_ROOTSHELL, DEV_REPO_URL / DEV_REPO_NAME / DEV_REPO_BRANCH,
 #   DO_BACKUP, BACKUP_PATHS, BACKUP_DEST
 
 # ── (LOCAL) PYTHON EXPLOIT DEPENDENCIES ──────────────────────────────────────
@@ -38,6 +38,19 @@ read -rp "Deploy the git aliases (gitconfig.conf) to the target's ~/.gitconfig? 
 
 # The TLS bridge runs ON the vulnbox (unlike the xfarm exploits) — offer to ship it.
 read -rp "Deploy the TLS interception bridge (python_exploits/tls) to ~/tls_bridge on the target? (y/N) " DEPLOY_TLS
+
+# Drop a nano config (~/.nanorc) — line numbers, syntax highlight, sane defaults.
+read -rp "Deploy the nano config (nanorc) to the target's ~/.nanorc? (y/N) " DEPLOY_NANO
+
+# Drop a Konsole config (~/.config/konsolerc + profile). Konsole is KDE's GUI
+# terminal — usually irrelevant on a headless vulnbox, hence default no — but the
+# files are harmless if konsole isn't installed and ready if it is.
+read -rp "Deploy the Konsole config (konsolerc + profile) to the target? (y/N) " DEPLOY_KONSOLE
+
+# Also give the TARGET's root the same zsh setup, so `sudo su` / `su -` on the box
+# keep your config instead of a bare bash. Defaults to yes. Skipped automatically
+# when you deploy AS root (root is already configured as the login user then).
+read -rp "Also set the TARGET's root shell to this zsh config (so 'sudo su' on the box keeps it)? (Y/n) " DEPLOY_ROOTSHELL
 
 # After everything else, optionally clone this toolkit's own dev branch onto the box.
 read -rp "Also clone this toolkit's dev branch into ~/<repo> on the target once setup finishes? (y/N) " DEPLOY_DEV

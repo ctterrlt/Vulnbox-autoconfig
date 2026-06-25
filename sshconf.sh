@@ -209,21 +209,32 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
         # We do this by hand instead of ssh-copy-id, whose -i handling of a
         # standalone .pub (no matching private key) varies across OpenSSH versions.
         #
-        # The keys are carried INSIDE the remote command as base64, not over
-        # ssh's stdin: with stdin-fed keys, a host-key confirmation or password
-        # prompt (esp. on a fresh box / OpenSSH 10.x) can swallow the key data so
-        # the remote loop receives nothing — that's why "no keys" got copied. So:
-        #   -n                                  : stdin = /dev/null, nothing to swallow
-        #   -o StrictHostKeyChecking=accept-new : auto-trust a new vulnbox, no prompt
-        # The remote decodes the blob to a temp file and reads it via redirect (not a
+        # The keys ride INSIDE the remote command as a single-quoted literal — NOT
+        # over ssh's stdin, and NOT base64-encoded:
+        #   * Not stdin: with stdin-fed keys, a host-key confirmation or password
+        #     prompt (esp. on a fresh box / OpenSSH 10.x) can swallow the key data so
+        #     the remote loop receives nothing — that's the original "no keys copied".
+        #     `-n` (stdin=/dev/null) keeps stdin clear; password/host-key prompts still
+        #     use the tty.
+        #   * Not base64: the remote then needed `base64 -d`, but on minimal boxes
+        #     (busybox / antiX) that's absent or stripped, so the decode produced an
+        #     EMPTY file and the loop silently reported 0 new keys — even the box's own
+        #     login key never landed. SSH pubkeys only contain [A-Za-z0-9+/=], spaces
+        #     and a comment, so we just embed them in a single-quoted literal after
+        #     escaping any stray apostrophe (' -> '\'') — no remote decoder needed.
+        #   * -o StrictHostKeyChecking=accept-new auto-trusts a new vulnbox (no prompt).
+        # The remote writes the keys to a temp file and reads them via redirect (not a
         # pipe), so the `added` counter survives (a `… | while` runs in a subshell).
-        KEYS_B64="$(base64 "$SEL_PUB" | tr -d '\n')"
-        ssh -n -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+        KEYS_LITERAL_ESC=$(sed "s/'/'\\\\''/g" "$SEL_PUB")
+        if ssh -n -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
             -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
-            "KEYS_B64='$KEYS_B64'; "'
-            umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys
+            "AUTH_KEYS='$KEYS_LITERAL_ESC'"'
+            umask 077
+            mkdir -p ~/.ssh && chmod 700 ~/.ssh
+            touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
             _tmpf="$(mktemp 2>/dev/null || echo "$HOME/.ssh/.newkeys.$$")"
-            printf "%s" "$KEYS_B64" | base64 -d > "$_tmpf"
+            printf "%s\n" "$AUTH_KEYS" > "$_tmpf"
+            got=$(grep -cvE "^[[:space:]]*$" "$_tmpf")
             added=0
             while IFS= read -r _k; do
                 [ -z "$_k" ] && continue
@@ -235,12 +246,29 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
             done < "$_tmpf"
             rm -f "$_tmpf"
             chmod 600 ~/.ssh/authorized_keys 2>/dev/null || true
-            echo "  ${added} new key(s) added to authorized_keys (the rest were already present)."
-        '
-        _rc=$?
+            echo "  received ${got} key(s); ${added} new added to authorized_keys (the rest were already present)."
+        '; then
+            _rc=0
+        else
+            _rc=$?
+        fi
         if [[ "$_rc" -ne 0 ]]; then
             echo "[ERR] Key copy over SSH failed (exit ${_rc}) — NO keys were copied."
-            echo "      Check that ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT} is reachable and the password was correct, then re-run."
+            echo "      If ssh said 'REMOTE HOST IDENTIFICATION HAS CHANGED' (e.g. the VM was reset), clear the stale entry:"
+            echo "          ssh-keygen -R '${TARGET_IP}'   # and, if non-standard port: ssh-keygen -R '[${TARGET_IP}]:${TARGET_PORT}'"
+            echo "      otherwise check ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT} is reachable and the password was correct, then re-run."
+        else
+            # Verify the key actually grants passwordless access. Catches the case
+            # where keys copied fine but sshd refuses them over home/.ssh permissions
+            # (StrictModes) — i.e. "copied but still asks for a password".
+            if ssh -n -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+                -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" 'exit 0' 2>/dev/null; then
+                echo "[OK] Passwordless login verified — your key works on ${TARGET_USER}@${TARGET_IP}."
+            else
+                echo "[WARN] Keys were copied but passwordless login still failed."
+                echo "       This is usually home/.ssh permissions on the target (sshd StrictModes). On the box run:"
+                echo "           chmod 700 ~ ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+            fi
         fi
     fi
 fi
