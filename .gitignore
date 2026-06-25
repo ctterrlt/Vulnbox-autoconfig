@@ -1,6 +1,12 @@
 **/ssh_on_rsa.py
 # Extra public keys to optionally push to a target (may hold teammates' keys)
 **/extra_keys.pub
+# Stray crypto keys (e.g. a `wg genkey` run in the wrong dir) — never commit these.
+# WireGuard's privatekey/publickey belong in /etc/wireguard, not the repo.
+**/privatekey
+**/publickey
+**/*.key
+**/*.pem
 **/*.claude/**/*
 **/.env*
 **/CLAUDE.md
