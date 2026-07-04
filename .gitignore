@@ -28,3 +28,5 @@
 **/venv/**/*
 **/.venv/**/*
 **/build/**/*
+# Node deps for web/skypedia_jwt_forge (installed via `npm install`, not vendored)
+**/node_modules/**/*
