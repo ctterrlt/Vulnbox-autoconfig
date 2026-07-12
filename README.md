@@ -38,7 +38,7 @@ to do fast under pressure:
 │   └── README.md
 │
 └── python_exploits/                 # the exploit arsenal (ExploitFarm / xfarm)
-    ├── pwnzerotti.sh                    # install/update exploitfarm·digger·firegex (main only; via auto.sh)
+    ├── pwnzerotti.sh                    # install/update exploitfarm·digger·firegex (main/dev; via auto.sh)
     ├── crypto/                          # crypto & brute-force oracles (7 projects)
     ├── binary/                          # pwn / memory-corruption (2 projects)
     ├── web/                             # SQLi toolkit + weak-hash cookie forgery + IDOR
@@ -177,9 +177,10 @@ server setup and the shared project pattern.
 To set up the ExploitFarm stack itself — the **exploitfarm** server plus **digger**
 and **firegex** — use the `./auto.sh` menu's *"Install/update ExploitFarm tooling"*
 entry (or run [`python_exploits/pwnzerotti.sh`](python_exploits/pwnzerotti.sh)). It
-installs each tool (clone if absent, `git pull` if already present), always tracks
-the **`main`** branch, and is built to **never fail mid-run** (on any git snag it
-hard-syncs to `origin/main`). Cloning/pulling recompiles from source — **digger** is
+installs each tool (clone if absent, `git pull` if already present), lets you pick
+**`main`** (stable) or **`dev`** (latest) per repo (prompts only if `dev` exists on
+the remote), and is built to **never fail mid-run** (on any git snag it
+hard-syncs to `origin/<branch>`). Cloning/pulling recompiles from source — **digger** is
 large and slow, so it only builds when you confirm.
 
 | Category | Projects |
