@@ -148,6 +148,29 @@ if [ "${DO_BACKUP:-n}" = "y" ]; then
         esac
     done
     echo "Backing up: ${_backup_paths[*]}"
+    # Git init each path on demand — the .git data rides inside the backup so
+    # the pulled archive is a ready-to-use repo from the start. Idempotent:
+    # skips dirs that already have .git, adds .gitignore if there isn't one.
+    if [ "${DO_GIT_INIT_REMOTE:-n}" = "y" ]; then
+        for _p in "${_backup_paths[@]}"; do
+            if [ -d "$_p" ]; then
+                if [ ! -d "$_p/.git" ]; then
+                    git -C "$_p" init -q 2>/dev/null \
+                        && echo "  -> git init'd $_p" \
+                        || echo "  (git init skipped for $_p)"
+                else
+                    echo "  -> $_p already has .git (skipping init)"
+                fi
+                if [ ! -f "$_p/.gitignore" ]; then
+                    printf '%s\n' \
+                        '*.pyc' '__pycache__/' '.venv/' '.env' \
+                        '*.zip' '*.tar.gz' '*.log' '.DS_Store' \
+                        > "$_p/.gitignore" 2>/dev/null || true
+                    echo "  -> added .gitignore to $_p"
+                fi
+            fi
+        done
+    fi
     rm -f ~/backup.zip
     zip -r ~/backup.zip "${_backup_paths[@]}" -x "$HOME/backup.zip"
 else
@@ -213,7 +236,7 @@ scp $SCP_OPTS -P "$TARGET_PORT" /tmp/vulnbox_payload.sh     "${TARGET_USER}@${TA
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DO_GIT_INIT_REMOTE='$DO_GIT_INIT_REMOTE' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
@@ -229,6 +252,8 @@ if [[ $DO_BACKUP == y ]]; then
 else
     echo -e "\n=== 4. BACKUP SKIPPED ==="
 fi
+
+post_backup_processing "$BACKUP_FILE"
 
 echo -e "\n=== 5. LOGGING IN ==="
 ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"

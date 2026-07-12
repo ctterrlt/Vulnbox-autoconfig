@@ -129,3 +129,125 @@ if [[ $DO_BACKUP == [yY] ]]; then
 else
     DO_BACKUP=n
 fi
+
+# ── POST-BACKUP PROMPTS: remote git init / local extract / local git init ────
+# All settled here while the user is in the interactive flow; consumed in the
+# payload (remote git init) and after the backup download below (local extraction
+# + local git init). Keeping them together avoids scattering prompts downstream.
+DO_GIT_INIT_REMOTE=""
+DO_EXTRACT=""
+EXTRACT_DEST=""
+DO_GIT_INIT_LOCAL=""
+if [[ $DO_BACKUP == y ]]; then
+    echo
+    read -rp "Git init the selected folders on the TARGET before zipping? (y/N) " DO_GIT_INIT_REMOTE
+    echo
+    read -rp "Extract the pulled backup zip on THIS machine after download? (y/N) " DO_EXTRACT
+    if [[ $DO_EXTRACT == [yY] ]]; then
+        read -rp "  Extract to path (blank = same folder as zip; relative = under $BACKUP_DEST): " EXTRACT_DEST
+    fi
+    echo
+    read -rp "Git init each extracted folder locally (add .gitignore if missing)? (y/N) " DO_GIT_INIT_LOCAL
+fi
+
+# ── POST-BACKUP PROCESSING (shared across all distros) ─────────────────────────
+# Called by each <distro>/<distro>_auto.sh after the backup has been pulled and
+# BACKUP_FILE is known.  Handles extraction, local git init (with .gitignore),
+# and prints the DEPLOYMENT WRAP-UP instructions.  Lives here so we don't
+# maintain three copies of the same block.
+post_backup_processing() {
+    local BACKUP_FILE="$1"
+
+    # ── EXTRACT BACKUP LOCALLY ────────────────────────────────────────────────
+    local EXTRACTED_DIR=""
+    if [[ $DO_BACKUP == y && $DO_EXTRACT == [yY] ]]; then
+        echo -e "\n=== EXTRACTING BACKUP ==="
+        if [[ -z "$EXTRACT_DEST" ]]; then
+            local _base="${BACKUP_FILE%.zip}"
+            EXTRACTED_DIR="$_base"
+        elif [[ "$EXTRACT_DEST" = /* ]]; then
+            EXTRACTED_DIR="$EXTRACT_DEST"
+        else
+            EXTRACTED_DIR="${BACKUP_DEST}/${EXTRACT_DEST}"
+        fi
+        local _orig="$EXTRACTED_DIR"
+        local _i=1
+        while [[ -d "$EXTRACTED_DIR" ]]; do
+            EXTRACTED_DIR="${_orig}_${_i}"
+            _i=$((_i + 1))
+        done
+        mkdir -p "$EXTRACTED_DIR"
+        echo "Extracting to $EXTRACTED_DIR ..."
+        unzip -q "$BACKUP_FILE" -d "$EXTRACTED_DIR" || {
+            echo "[!] Extraction failed — removing empty target dir."
+            rm -rf "$EXTRACTED_DIR"
+            EXTRACTED_DIR=""
+        }
+        if [[ -n "$EXTRACTED_DIR" ]]; then
+            echo "  -> extracted to $EXTRACTED_DIR"
+        fi
+    fi
+
+    # ── GIT INIT ON EXTRACTED FOLDERS ─────────────────────────────────────────
+    if [[ -n "$EXTRACTED_DIR" && $DO_GIT_INIT_LOCAL == [yY] ]]; then
+        echo -e "\n=== GIT INIT ON EXTRACTED FOLDERS ==="
+        local _found=0
+        for _item in "$EXTRACTED_DIR"/*/; do
+            [ -d "$_item" ] || continue
+            _item="${_item%/}"
+            local _name="$(basename "$_item")"
+            if [ -d "$_item/.git" ]; then
+                echo "  -> $_name already has .git (skipping init)"
+            else
+                git -C "$_item" init -q && echo "  -> git init'd $_name"
+            fi
+            if [ ! -f "$_item/.gitignore" ]; then
+                cat > "$_item/.gitignore" <<- GITIGNORE_LOCAL
+*.pyc
+__pycache__/
+.venv/
+.env
+*.zip
+*.tar.gz
+*.log
+.DS_Store
+GITIGNORE_LOCAL
+                echo "  -> added .gitignore to $_name"
+            fi
+            _found=$((_found + 1))
+        done
+        if (( _found == 0 )); then
+            if [ -d "$EXTRACTED_DIR" ]; then
+                if [ ! -d "$EXTRACTED_DIR/.git" ]; then
+                    git -C "$EXTRACTED_DIR" init -q && echo "  -> git init'd $(basename "$EXTRACTED_DIR")"
+                fi
+                if [ ! -f "$EXTRACTED_DIR/.gitignore" ]; then
+                    cat > "$EXTRACTED_DIR/.gitignore" <<- GITIGNORE_LOCAL
+*.pyc
+__pycache__/
+.venv/
+.env
+*.zip
+*.tar.gz
+*.log
+.DS_Store
+GITIGNORE_LOCAL
+                    echo "  -> added .gitignore to $(basename "$EXTRACTED_DIR")"
+                fi
+            fi
+        fi
+    fi
+
+    # ── DEPLOYMENT WRAP-UP: reminders ─────────────────────────────────────────
+    echo -e "\n=== DEPLOYMENT WRAP-UP ==="
+    echo "  What to do next on the vulnbox:"
+    echo "  1. Start the tools / services you need (listeners, bridges, ...)"
+    echo "  2. Add the vulnbox GitHub API key so it can push/pull:"
+    echo "       git remote set-url origin https://<user>:<token>@github.com/..."
+    echo "  3. Link git repos between your PC and the vulnbox"
+    echo "     (set a shared remote on GitHub, or scp .git/config across)"
+    echo "  4. Update .gitignore in every repo as needed"
+    echo "  5. Push everything to GitHub"
+    echo "  6. Restart every service that got updated config"
+    echo "  7. Fine-tune exploit tool configs (paths, tokens, flag IDs)"
+}
