@@ -30,3 +30,6 @@
 **/build/**/*
 # Node deps for web/skypedia_jwt_forge (installed via `npm install`, not vendored)
 **/node_modules/**/*
+# Root-level Node artifacts (skypedia_jwt_forge has its own package.json — never run npm here)
+/package.json
+/package-lock.json
