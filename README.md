@@ -38,7 +38,7 @@ to do fast under pressure:
 │   └── README.md
 │
 └── python_exploits/                 # the exploit arsenal (ExploitFarm / xfarm)
-    ├── pwnzerotti.sh                    # install/update exploitfarm·digger·firegex (main/dev; via auto.sh)
+    ├── pwnzerotti.sh                    # stub → now integrated directly into auto.sh (menu option 4)
     ├── crypto/                          # crypto & brute-force oracles (7 projects)
     ├── binary/                          # pwn / memory-corruption (2 projects)
     ├── web/                             # SQLi toolkit + weak-hash cookie forgery + IDOR
@@ -74,14 +74,15 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
   `~/.ssh/config` entry so you can reconnect later with just `ssh <alias>`.
 - **One source of truth:** every distro shares the same `zshconfig` and git setup —
   import the git aliases/settings wholesale or pick them item by item.
-- **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch,
-  Oh-My-Zsh, syntax highlighting and autosuggestions.
+- **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch (or Neofetch),
+   Oh-My-Zsh, syntax highlighting and autosuggestions.
 - **Editor & git (opt-in):** prompts whether to install Neovim and deploy a shared
   `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/`, and
   separately whether to push the shared git aliases to the target's `~/.gitconfig` —
   decline either to leave the box's existing setup untouched.
-- **nano & Konsole config (opt-in):** optionally drop a shared `~/.nanorc` (line
-  numbers, syntax highlight, sane defaults) and/or a Konsole config + profile
+- **nano & Konsole config (opt-in):** optionally drop a shared `~/.nanorc` (syntax
+   highlight, sane defaults; line numbers disabled — hit `Alt+Shift+3` to toggle)
+   and/or a Konsole config + profile
   (`~/.config/konsolerc` + `~/.local/share/konsole/`). Konsole isn't installed —
   the files just sit ready if it's present (vulnboxes are usually headless). The
   konsolerc shortcuts are a static baseline; the deployed `.zshrc` also **live-syncs**
@@ -113,11 +114,11 @@ chmod +x auto.sh
 ./auto.sh
 ```
 
-`auto.sh` first offers to import the shared git aliases into *your own* `~/.gitconfig`
-(all at once via `include.path`, or item-by-item), then shows the menu. Besides the
-three distros it also has an **"Install/update ExploitFarm tooling"** entry that runs
-[`python_exploits/pwnzerotti.sh`](python_exploits/pwnzerotti.sh) (see Part 2).
-Picking a distro runs that folder's deploy, which walks you through, in order:
+`auto.sh` first offers to import/refresh the shared git aliases into *your own*
+`~/.gitconfig` (all at once via `include.path`, or item-by-item), then shows the menu.
+Besides the three distros it also has an **"Install/update ExploitFarm tooling"** entry
+with the logic integrated directly into the menu (see Part 2). Picking a distro runs
+that folder's deploy, which walks you through, in order:
 
 1. **SSH target** — reuse a host already in `~/.ssh/config` or enter a new IP / user / port (blank = 22) / alias.
 2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
@@ -176,8 +177,8 @@ server setup and the shared project pattern.
 
 To set up the ExploitFarm stack itself — the **exploitfarm** server plus **digger**
 and **firegex** — use the `./auto.sh` menu's *"Install/update ExploitFarm tooling"*
-entry (or run [`python_exploits/pwnzerotti.sh`](python_exploits/pwnzerotti.sh)). It
-installs each tool (clone if absent, `git pull` if already present), lets you pick
+entry (the logic is inline in `auto.sh`, no separate script needed). It installs
+each tool (clone if absent, `git pull` if already present), lets you pick
 **`main`** (stable) or **`dev`** (latest) per repo (prompts only if `dev` exists on
 the remote), and is built to **never fail mid-run** (on any git snag it
 hard-syncs to `origin/<branch>`). Cloning/pulling recompiles from source — **digger** is
