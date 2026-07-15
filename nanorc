@@ -11,7 +11,8 @@
 include "/usr/share/nano/*.nanorc"
 include "/usr/share/nano/extra/*.nanorc"
 
-set linenumbers          # show line numbers in the left margin
+#set linenumbers          # disabled: line numbers get selected/ copied with text in the terminal
+                         # hit Alt+Shift+3 (M-#) inside nano to toggle them on demand
 set numbercolor cyan
 set constantshow         # always show the cursor position on the status bar
 set tabsize 4

@@ -47,43 +47,43 @@ echo "========================================"
 
 GIT_CONF_SRC="$SCRIPT_DIR/gitconfig.conf"
 if [[ -f "$GIT_CONF_SRC" ]]; then
-    # '|| true' prevents set -e from exiting if no include.path is configured yet
     CURRENT_INCLUDES=$(git config --global --get-all include.path 2>/dev/null || true)
 
-    if [[ "$CURRENT_INCLUDES" == *"$GIT_CONF_SRC"* ]]; then
-        echo "[OK] Git aliases are already linked."
-    else
-        read -r -p "Import Vulnbox Git config into your ~/.gitconfig? (y/N) " link_aliases
-        if [[ "$link_aliases" == [yY] ]]; then
-            read -r -p "Import [a]ll, or choose [i]tem per item? (a/i) [a]: " git_mode
-            git_mode=${git_mode:-a}
-            if [[ "$git_mode" == [iI] ]]; then
-                # Per-item: read each entry's value from the source via git itself
-                # (no manual ini parsing — keeps complex values like 'lg' intact),
-                # then apply only the chosen ones to ~/.gitconfig.
-                mapfile -t GIT_KEYS < <(git config -f "$GIT_CONF_SRC" --list --name-only)
-                GIT_OPTS=()
-                for key in "${GIT_KEYS[@]}"; do
-                    GIT_OPTS+=("${key} = $(git config -f "$GIT_CONF_SRC" --get "$key")")
-                done
-                GIT_SEL=()   # start empty — add the entries you want
-                review_selection GIT_OPTS GIT_SEL "entry"
-                imported=0
-                for n in "${GIT_SEL[@]:-}"; do
-                    [[ -z "$n" ]] && continue
-                    key="${GIT_KEYS[$((n - 1))]}"
-                    git config --global "$key" "$(git config -f "$GIT_CONF_SRC" --get "$key")"
-                    echo "    [+] ${key}"
-                    imported=$((imported + 1))
-                done
-                echo "[SUCCESS] Imported ${imported} Git entr$([[ $imported -eq 1 ]] && echo y || echo ies) into ~/.gitconfig."
-            else
-                git config --global --add include.path "$GIT_CONF_SRC"
-                echo "[SUCCESS] Linked all Vulnbox Git config to your ~/.gitconfig."
-            fi
+    read -r -p "Import/refresh Vulnbox Git config into your ~/.gitconfig? (y/N) " link_aliases
+    if [[ "$link_aliases" == [yY] ]]; then
+        read -r -p "Import [a]ll, or choose [i]tem per item? (a/i) [a]: " git_mode
+        git_mode=${git_mode:-a}
+        if [[ "$git_mode" == [iI] ]]; then
+            # Per-item: read each entry's value from the source via git itself
+            # (no manual ini parsing — keeps complex values like 'lg' intact),
+            # then apply only the chosen ones to ~/.gitconfig.
+            mapfile -t GIT_KEYS < <(git config -f "$GIT_CONF_SRC" --list --name-only)
+            GIT_OPTS=()
+            for key in "${GIT_KEYS[@]}"; do
+                GIT_OPTS+=("${key} = $(git config -f "$GIT_CONF_SRC" --get "$key")")
+            done
+            GIT_SEL=()   # start empty — add the entries you want
+            review_selection GIT_OPTS GIT_SEL "entry"
+            imported=0
+            for n in "${GIT_SEL[@]:-}"; do
+                [[ -z "$n" ]] && continue
+                key="${GIT_KEYS[$((n - 1))]}"
+                git config --global "$key" "$(git config -f "$GIT_CONF_SRC" --get "$key")"
+                echo "    [+] ${key}"
+                imported=$((imported + 1))
+            done
+            echo "[SUCCESS] Imported ${imported} Git entr$([[ $imported -eq 1 ]] && echo y || echo ies) into ~/.gitconfig."
         else
-            echo "[SKIPPED] Git config not imported."
+            # Remove any existing include.path for this file first, so re-running
+            # auto.sh always refreshes the link (picks up changes to gitconfig.conf).
+            if [[ "$CURRENT_INCLUDES" == *"$GIT_CONF_SRC"* ]]; then
+                git config --global --unset-all include.path "$GIT_CONF_SRC" 2>/dev/null || true
+            fi
+            git config --global --add include.path "$GIT_CONF_SRC"
+            echo "[SUCCESS] Linked/refreshed all Vulnbox Git config to your ~/.gitconfig."
         fi
+    else
+        echo "[SKIPPED] Git config not imported."
     fi
 
     # Prompt for user.name only if unset — optional, user can skip
@@ -129,8 +129,173 @@ select opt in "${options[@]}"; do
             ;;
         "Install/update ExploitFarm tooling (exploitfarm/digger/firegex)")
             # Robust installer — never aborts auto.sh even if it errors.
-            "$SCRIPT_DIR/python_exploits/pwnzerotti.sh" || true
-            # Back to the menu so you can then deploy a distro or quit.
+            # Run in a subshell with errexit disabled so isolated failures are safe.
+            (
+                set +euo pipefail 2>/dev/null || true
+                PWNZER_DIR="${PWNZER_DIR:-$HOME/pwnzerotti}"
+
+                URL_exploitfarm="https://github.com/Pwnzer0tt1/exploitfarm"
+                URL_digger="https://github.com/Pwnzer0tt1/digger"
+                URL_firegex="https://github.com/Pwnzer0tt1/firegex"
+
+                has_remote_branch() {
+                    local url="$1" branch="$2"
+                    git ls-remote --heads "$url" "$branch" 2>/dev/null | grep -q "refs/heads/$branch"
+                }
+
+                resolve_branch() {
+                    local name="$1" url="$2" mode="$3"
+                    case "$mode" in
+                        dev)
+                            if has_remote_branch "$url" dev; then
+                                echo "dev"; return
+                            fi
+                            echo "  ($name has no dev branch on remote — using main)" >&2
+                            echo "main"
+                            ;;
+                        ask)
+                            if has_remote_branch "$url" dev; then
+                                read -rp "  Branch for $name? (M)ain / (D)ev [M]: " _b
+                                case "${_b:-}" in [dD]) echo "dev"; return ;; esac
+                            fi
+                            echo "main"
+                            ;;
+                        *) echo "main" ;;
+                    esac
+                }
+
+                ensure_repo() {
+                    local name="$1" url="$2" branch="$3"
+                    local dest="$PWNZER_DIR/$name"
+                    mkdir -p "$PWNZER_DIR" 2>/dev/null || true
+
+                    if ! command -v git >/dev/null 2>&1; then
+                        echo "    [!] git not found — cannot install $name. Skipping."
+                        return 0
+                    fi
+
+                    if [ -d "$dest/.git" ]; then
+                        local current_branch
+                        current_branch="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
+                        echo "[*] $name at $dest (current: $current_branch) — updating to $branch..."
+
+                        git -C "$dest" remote set-url origin "$url" 2>/dev/null || true
+                        git -C "$dest" fetch origin "$branch" 2>/dev/null \
+                            || git -C "$dest" fetch --all 2>/dev/null \
+                            || true
+
+                        if [ "$current_branch" != "$branch" ]; then
+                            echo "    Branch switch: $current_branch → $branch"
+                            echo "      (s)tash  — stash local changes, switch, pop stash"
+                            echo "      (r)eset  — discard local changes & hard-switch"
+                            echo "      (a)bort  — skip $name"
+                            read -rp "    How to proceed? [s]: " _conflict
+                            case "${_conflict:-s}" in
+                                r|R)
+                                    git -C "$dest" checkout -B "$branch" "origin/$branch" 2>/dev/null || \
+                                    git -C "$dest" checkout "$branch" 2>/dev/null || true
+                                    git -C "$dest" reset --hard "origin/$branch" 2>/dev/null || true
+                                    git -C "$dest" clean -fd 2>/dev/null || true
+                                    echo "    -> hard reset to origin/$branch"
+                                    ;;
+                                a|A)
+                                    echo "    -> skipped $name"
+                                    return 0
+                                    ;;
+                                *)
+                                    git -C "$dest" stash 2>/dev/null || true
+                                    git -C "$dest" checkout -B "$branch" "origin/$branch" 2>/dev/null || \
+                                    git -C "$dest" checkout "$branch" 2>/dev/null || true
+                                    git -C "$dest" stash pop 2>/dev/null \
+                                        || echo "    [warn] stash pop had conflicts — check $dest manually"
+                                    echo "    -> stashed, switched, popped"
+                                    ;;
+                            esac
+                        else
+                            if ! git -C "$dest" pull --rebase origin "$branch" 2>/dev/null; then
+                                echo "    [!] pull/rebase hit a snag — hard-syncing to origin/$branch (local changes discarded)."
+                                git -C "$dest" rebase --abort 2>/dev/null || true
+                                git -C "$dest" reset --hard "origin/$branch" 2>/dev/null || true
+                                git -C "$dest" clean -fd 2>/dev/null || true
+                            fi
+                        fi
+                    else
+                        echo "[*] Cloning $name ($branch) into $dest..."
+                        rm -rf "$dest" 2>/dev/null || true
+                        git clone -b "$branch" "$url" "$dest" 2>/dev/null \
+                            || { echo "    [!] clone failed (network/git?) — skipping $name."; return 0; }
+                    fi
+
+                    local br
+                    br="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
+                    echo "[+] $name ready at $dest (branch: $br)."
+                    return 0
+                }
+
+                build_repo() {
+                    local name="$1" dest="$PWNZER_DIR/$name"
+                    [ -d "$dest" ] || return 0
+                    echo "[*] Best-effort build for $name (failures are non-fatal)..."
+                    if [ -f "$dest/docker-compose.yml" ] || [ -f "$dest/compose.yml" ] || [ -f "$dest/docker-compose.yaml" ]; then
+                        ( cd "$dest" && { docker compose build || docker-compose build; } ) 2>&1 | sed 's/^/    /' || true
+                    elif [ -f "$dest/Makefile" ]; then
+                        ( cd "$dest" && make ) 2>&1 | sed 's/^/    /' || true
+                    elif [ -f "$dest/requirements.txt" ]; then
+                        python3 -m pip install -r "$dest/requirements.txt" 2>/dev/null \
+                          || python3 -m pip install --user --break-system-packages -r "$dest/requirements.txt" 2>/dev/null || true
+                    else
+                        echo "    (no known build file detected — see $dest/README for build/run steps.)"
+                    fi
+                    return 0
+                }
+
+                install_tool() {
+                    local name="$1" url="$2" mode="$3"
+                    local branch
+                    branch="$(resolve_branch "$name" "$url" "$mode")"
+                    ensure_repo "$name" "$url" "$branch"
+                    read -rp "    Build $name now? (heavy — recompiles from source) [y/N]: " _b || true
+                    [[ "${_b:-}" == [yY] ]] && build_repo "$name"
+                    [ "$name" = "exploitfarm" ] && echo "    Start ExploitFarm with:  cd '$PWNZER_DIR/exploitfarm' && python3 run.py start --prebuilt"
+                    return 0
+                }
+
+                echo "==================================================================="
+                echo "  Pwnzer0tt1 ExploitFarm stack — install / update"
+                echo "==================================================================="
+                echo "Repos live under: $PWNZER_DIR    (override with  PWNZER_DIR=...)"
+                echo "Note: cloning or pulling recompiles from source — digger is large and slow."
+                echo
+
+                BRANCH_MODE="main"
+                echo "  Branch preference for Pwnzer0tt1 repos:"
+                echo "    (M)ain — stable, recommended"
+                echo "    (D)ev  — latest, may be unstable"
+                echo "    (a)sk  — decide per repo (prompts if dev exists)"
+                read -rp "    Which? [M]: " _branch_choice
+                case "${_branch_choice:-}" in
+                    [dD]) BRANCH_MODE="dev"; echo "  -> using dev branch where available" ;;
+                    [aA]) BRANCH_MODE="ask"; echo "  -> will ask per repo" ;;
+                    *)    echo "  -> using main branch" ;;
+                esac
+                echo
+
+                while true; do
+                    echo
+                    echo "  1) exploitfarm    2) digger    3) firegex    4) all    5) back"
+                    read -rp "Install/update which? [5]: " _c || true
+                    case "${_c:-5}" in
+                        1) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE" ;;
+                        2) install_tool digger      "$URL_digger"      "$BRANCH_MODE" ;;
+                        3) install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
+                        4) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE"
+                           install_tool digger      "$URL_digger"      "$BRANCH_MODE"
+                           install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
+                        5|b|B|q|Q) break ;;
+                        *) echo "  invalid choice — pick 1-5." ;;
+                    esac
+                done
+            ) || true
             continue
             ;;
         "Quit")

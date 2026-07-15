@@ -22,6 +22,14 @@ fi
 # DO_BACKUP, BACKUP_PATHS and BACKUP_DEST for the payload.
 . "$DIR/../deployconf.sh"
 
+# ── FASTFETCH / NEOFETCH CHOICE ───────────────────────────────────────────────
+read -rp "Use [F]astfetch or [N]eofetch for system info on the target? (f/N) " _fetch_choice
+if [[ "$_fetch_choice" == [fF] ]]; then
+    FETCH_CMD="fastfetch"
+else
+    FETCH_CMD="neofetch"
+fi
+
 cat << 'PAYLOAD_EOF' > /tmp/vulnbox_payload.sh
 #!/bin/bash
 set -euo pipefail
@@ -39,9 +47,10 @@ sudo apt update
 # php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
 sudo apt install -y zip zsh nano git curl \
     zsh-syntax-highlighting zsh-autosuggestions openssh-server php
-for _pkg in fastfetch lsd tty-clock cmatrix; do
+for _pkg in lsd tty-clock cmatrix; do
     sudo apt install -y "$_pkg" || echo "  (skipped $_pkg — not in repos)"
 done
+sudo apt install -y "${FETCH_CMD:-fastfetch}" || echo "  (skipped ${FETCH_CMD:-fastfetch} — not in repos)"
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -53,6 +62,11 @@ sudo chsh -s "$(which zsh)" "$USER"
 
 # Apply config
 mv /tmp/zshconfig_debian_ubuntu.conf ~/.zshrc
+
+# If neofetch was chosen, replace all fastfetch references in .zshrc
+if [ "${FETCH_CMD:-fastfetch}" != "fastfetch" ]; then
+    sed -i 's/\bfastfetch\b/neofetch/g' ~/.zshrc
+fi
 
 # Apply Neovim config (only if it was transferred — user opted in)
 if [ -f /tmp/nvimconfig.lua ]; then
@@ -219,7 +233,7 @@ scp $SCP_OPTS -P "$TARGET_PORT" /tmp/vulnbox_payload.sh             "${TARGET_US
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DO_GIT_INIT_REMOTE='$DO_GIT_INIT_REMOTE' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DO_GIT_INIT_REMOTE='$DO_GIT_INIT_REMOTE' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' FETCH_CMD='$FETCH_CMD' bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
