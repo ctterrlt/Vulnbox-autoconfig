@@ -1,8 +1,5 @@
 **/ssh_on_rsa.py
-# Extra public keys to optionally push to a target (may hold teammates' keys)
-**/extra_keys.pub
-# Stray crypto keys (e.g. a `wg genkey` run in the wrong dir) — never commit these.
-# WireGuard's privatekey/publickey belong in /etc/wireguard, not the repo.
+! **/.gitkeep
 **/privatekey
 **/publickey
 **/*.key
@@ -13,23 +10,17 @@
 **/backup_from_*.zip
 **/__pycache__/**/*
 **/*.pyc
-# Self-signed certs minted locally by python_exploits/tls
 **/tls_server.crt
 **/tls_server.key
-# tls.py --daemon runtime artifacts
 **/tls.pid
 **/tls_daemon.log
-# Runtime artifacts from converting/noobexfil_solve.py (any dir)
-**/flag.zip
+**/*.zip
 **/flag_out/**/*
 **/*.pcapng
 **/*.pcap
-# Python virtualenvs / build output (any dir)
 **/venv/**/*
 **/.venv/**/*
 **/build/**/*
-# Node deps for web/skypedia_jwt_forge (installed via `npm install`, not vendored)
 **/node_modules/**/*
-# Root-level Node artifacts (skypedia_jwt_forge has its own package.json — never run npm here)
 /package.json
 /package-lock.json
