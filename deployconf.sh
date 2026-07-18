@@ -52,19 +52,32 @@ read -rp "Deploy the Konsole config (konsolerc + profile) to the target? (y/N) "
 # when you deploy AS root (root is already configured as the login user then).
 read -rp "Also set the TARGET's root shell to this zsh config (so 'sudo su' on the box keeps it)? (Y/n) " DEPLOY_ROOTSHELL
 
-# After everything else, optionally clone this toolkit's own dev branch onto the box.
-read -rp "Also clone this toolkit's dev branch into ~/<repo> on the target once setup finishes? (y/N) " DEPLOY_DEV
+# After everything else, optionally clone this toolkit onto the box.
+read -rp "Also clone this toolkit into ~/<repo> on the target once setup finishes? (y/N) " DEPLOY_DEV
 DEV_REPO_URL=""
 DEV_REPO_NAME=""
-DEV_REPO_BRANCH="dev"
+DEV_REPO_BRANCH=""
 if [[ $DEPLOY_DEV == [yY] ]]; then
-    # Derive the clone URL from this checkout's origin; rewrite an SSH remote to its
-    # HTTPS form so the vulnbox needs no GitHub key of its own.
+    read -rp "  Which branch to clone? [main]: " DEV_REPO_BRANCH
+    DEV_REPO_BRANCH="${DEV_REPO_BRANCH:-main}"
+    # Derive the clone URL from this checkout's origin; convert protocol
+    # according to GIT_CLONE_PROTOCOL (https → SSH via git@, or SSH → HTTPS).
     DEV_REPO_URL=$(git -C "$DIR" remote get-url origin 2>/dev/null || true)
-    if [[ $DEV_REPO_URL == git@*:* ]]; then
-        _hp=${DEV_REPO_URL#git@}; DEV_REPO_URL="https://${_hp%%:*}/${_hp#*:}"
-    elif [[ $DEV_REPO_URL == ssh://git@* ]]; then
-        DEV_REPO_URL="https://${DEV_REPO_URL#ssh://git@}"
+    if [[ -n $DEV_REPO_URL ]]; then
+        if [[ "${GIT_CLONE_PROTOCOL:-https}" == "https" ]]; then
+            # SSH → HTTPS
+            if [[ $DEV_REPO_URL == git@*:* ]]; then
+                _hp=${DEV_REPO_URL#git@}; DEV_REPO_URL="https://${_hp%%:*}/${_hp#*:}"
+            elif [[ $DEV_REPO_URL == ssh://git@* ]]; then
+                DEV_REPO_URL="https://${DEV_REPO_URL#ssh://git@}"
+            fi
+        else
+            # HTTPS → SSH (GitHub format)
+            if [[ $DEV_REPO_URL == https://github.com/* ]]; then
+                DEV_REPO_URL="git@github.com:${DEV_REPO_URL#https://github.com/}"
+                DEV_REPO_URL="${DEV_REPO_URL%.git}.git"
+            fi
+        fi
     fi
     if [[ -z $DEV_REPO_URL ]]; then
         echo "  Couldn't determine this repo's origin URL — skipping the dev clone."
