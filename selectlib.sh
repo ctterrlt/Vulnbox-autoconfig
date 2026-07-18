@@ -55,7 +55,7 @@ review_selection() {
         read -rp "Your choice: " _line
 
         # Detect the "all" keyword (last word) regardless of prefix.
-        _last_word="$(printf '%s' "$_line" | grep -oE '[[:alpha:]]+$' | tr '[:upper:]' '[:lower:]')"
+        _last_word="$(printf '%s' "$_line" | grep -oE '[[:alpha:]]+$' | tr '[:upper:]' '[:lower:]' || true)"
         _all_req=0
         [[ "$_last_word" == "all" ]] && _all_req=1
 
