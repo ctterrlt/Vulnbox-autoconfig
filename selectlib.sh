@@ -50,8 +50,14 @@ review_selection() {
         for n in "${!__r_opts[@]}"; do
             printf "    %s) %s\n" "$((n + 1))" "${__r_opts[$n]}"
         done
-        echo "Examples:  2 → toggle item 2  ·  1 2 → toggle both  ·  a 2 → add  ·  r 1 → remove  ·  Enter → confirm"
+        echo "Examples:  '2' → toggle · '1 2' → toggle both · 'a 2' → add · 'r 2' → remove"
+        echo "          'all' → toggle all · 'a all' → add all · 'r all' → remove all · Enter → confirm"
         read -rp "Your choice: " _line
+
+        # Detect the "all" keyword (last word) regardless of prefix.
+        _last_word="$(printf '%s' "$_line" | grep -oE '[[:alpha:]]+$' | tr '[:upper:]' '[:lower:]')"
+        _all_req=0
+        [[ "$_last_word" == "all" ]] && _all_req=1
 
         # First non-space char selects the mode; numbers come from the whole line.
         _first="$(printf '%s' "$_line" | sed -E 's/^[[:space:]]*//' | cut -c1)"
@@ -61,12 +67,32 @@ review_selection() {
             ""|c|C) return 0 ;;
             a|A)      _mode=add ;;
             r|R)      _mode=remove ;;
-            [0-9])    _mode=toggle ;;
-            *) echo "    (Enter to confirm, number(s) to toggle, or 'a'/'r' + numbers)"; continue ;;
+            *)        _mode=toggle ;;
         esac
 
+        # "all" overrides per-number processing.
+        if (( _all_req )); then
+            case "$_mode" in
+                add)
+                    __r_sel=()
+                    for _n in "${!__r_opts[@]}"; do __r_sel+=("$((_n + 1))"); done
+                    continue ;;
+                remove)
+                    __r_sel=()
+                    continue ;;
+                toggle)
+                    if (( ${#__r_sel[@]} == ${#__r_opts[@]} )); then
+                        __r_sel=()
+                    else
+                        __r_sel=()
+                        for _n in "${!__r_opts[@]}"; do __r_sel+=("$((_n + 1))"); done
+                    fi
+                    continue ;;
+            esac
+        fi
+
         if (( ${#_nums[@]} == 0 )); then
-            echo "    (give a number, e.g. '2')"
+            echo "    (enter a number, e.g. '2', or 'all')"
             continue
         fi
 
