@@ -16,7 +16,7 @@
 # sync from every sub-requirements.txt by scripts/gen_requirements.py.
 ROOT_REQ="$DIR/../requirements.txt"
 read -rp "Install all Python exploit deps from requirements.txt on THIS machine? (y/N) " INSTALL_REQS
-if [[ ${INSTALL_REQS:-} == [yY] ]]; then
+if [[ ${INSTALL_REQS:-} == [yY]* ]]; then
     if [ -f "$ROOT_REQ" ]; then
         echo "  Installing $ROOT_REQ locally (pip)..."
         python3 -m pip install -r "$ROOT_REQ" \
@@ -57,9 +57,10 @@ read -rp "Also clone this toolkit into ~/<repo> on the target once setup finishe
 DEV_REPO_URL=""
 DEV_REPO_NAME=""
 DEV_REPO_BRANCH=""
-if [[ $DEPLOY_DEV == [yY] ]]; then
-    read -rp "  Which branch to clone? [main]: " DEV_REPO_BRANCH
-    DEV_REPO_BRANCH="${DEV_REPO_BRANCH:-main}"
+if [[ $DEPLOY_DEV == [yY]* ]]; then
+    echo "    1) main    2) dev"
+    read -rp "  Which branch to clone? Enter number or name [main]: " _branch_in
+    case "${_branch_in:-1}" in 2|[dD]*) DEV_REPO_BRANCH="dev" ;; *) DEV_REPO_BRANCH="main" ;; esac
     # Derive the clone URL from this checkout's origin; convert protocol
     # according to GIT_CLONE_PROTOCOL (https → SSH via git@, or SSH → HTTPS).
     DEV_REPO_URL=$(git -C "$DIR" remote get-url origin 2>/dev/null || true)
@@ -91,7 +92,7 @@ fi
 read -rp "Pull a backup from the target before finishing? (y/N) " DO_BACKUP
 BACKUP_PATHS=""
 BACKUP_DEST="$HOME"
-if [[ $DO_BACKUP == [yY] ]]; then
+if [[ $DO_BACKUP == [yY]* ]]; then
     DO_BACKUP=y
     # Show what's in the target's home so you can choose folders by name (lsd if present).
     echo "--- contents of the target's home directory ---"
@@ -105,8 +106,8 @@ if [[ $DO_BACKUP == [yY] ]]; then
         if [[ -z "$BACKUP_PATHS" ]]; then
             read -rp "No folders selected — zip the WHOLE home dir? ([y]es / [r]e-enter / [n]o backup) " ans
             case "$ans" in
-                [yY]) echo "  -> backing up the whole home directory."; break ;;
-                [rR]) continue ;;
+                [yY]*) echo "  -> backing up the whole home directory."; break ;;
+                [rR]*) continue ;;
                 *)    DO_BACKUP=n; echo "  -> backup cancelled."; break ;;
             esac
         else
@@ -125,7 +126,7 @@ if [[ $DO_BACKUP == [yY] ]]; then
                 case "$_p" in */) echo "    - $_p" ;; *) echo "    - $_p/" ;; esac
             done
             read -rp "Proceed with these? [Y]es (Enter) / [r]e-enter: " ans
-            if [[ "$ans" == [rR] ]]; then continue; fi
+            if [[ "$ans" == [rR]* ]]; then continue; fi
             break
         fi
     done
@@ -156,7 +157,7 @@ if [[ $DO_BACKUP == y ]]; then
     read -rp "Git init the selected folders on the TARGET before zipping? (y/N) " DO_GIT_INIT_REMOTE
     echo
     read -rp "Extract the pulled backup zip on THIS machine after download? (y/N) " DO_EXTRACT
-    if [[ $DO_EXTRACT == [yY] ]]; then
+    if [[ $DO_EXTRACT == [yY]* ]]; then
         read -rp "  Extract to path (blank = same folder as zip; relative = under $BACKUP_DEST): " EXTRACT_DEST
     fi
     echo
@@ -173,7 +174,7 @@ post_backup_processing() {
 
     # ── EXTRACT BACKUP LOCALLY ────────────────────────────────────────────────
     local EXTRACTED_DIR=""
-    if [[ $DO_BACKUP == y && $DO_EXTRACT == [yY] ]]; then
+    if [[ $DO_BACKUP == y && $DO_EXTRACT == [yY]* ]]; then
         echo -e "\n=== EXTRACTING BACKUP ==="
         if [[ -z "$EXTRACT_DEST" ]]; then
             local _base="${BACKUP_FILE%.zip}"
@@ -202,7 +203,7 @@ post_backup_processing() {
     fi
 
     # ── GIT INIT ON EXTRACTED FOLDERS ─────────────────────────────────────────
-    if [[ -n "$EXTRACTED_DIR" && $DO_GIT_INIT_LOCAL == [yY] ]]; then
+    if [[ -n "$EXTRACTED_DIR" && $DO_GIT_INIT_LOCAL == [yY]* ]]; then
         echo -e "\n=== GIT INIT ON EXTRACTED FOLDERS ==="
         local _found=0
         for _item in "$EXTRACTED_DIR"/*/; do
@@ -263,4 +264,51 @@ GITIGNORE_LOCAL
     echo "  5. Push everything to GitHub"
     echo "  6. Restart every service that got updated config"
     echo "  7. Fine-tune exploit tool configs (paths, tokens, flag IDs)"
+}
+
+# ── DEPLOYMENT SUMMARY ─────────────────────────────────────────────────────────
+# Prints a recap of everything done, with key details the operator needs.
+# Called from each <distro>/<distro>_auto.sh after post_backup_processing.
+print_summary() {
+    echo ""
+    echo "========================================="
+    echo "       DEPLOYMENT SUMMARY                "
+    echo "========================================="
+    echo "  Target:       ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}"
+    echo "  Host alias:   ${HOST_ALIAS:-<none>}"
+    echo ""
+    echo "  SSH key:      ~/.ssh/id_ed25519.pub"
+    if [ -f "$HOME/.ssh/id_ed25519.pub" ]; then
+        echo "  Key comment:  $(awk '{print $3}' "$HOME/.ssh/id_ed25519.pub")"
+        echo "  Fingerprint:  $(ssh-keygen -lf "$HOME/.ssh/id_ed25519.pub" 2>/dev/null | awk '{print $2}')"
+    fi
+    echo "  SCP protocol: $([ "${SCP_OPTS:--O}" = "-O" ] && echo "legacy (-O)" || echo "modern (SFTP)")"
+    echo "  Git protocol: ${GIT_CLONE_PROTOCOL:-https}"
+    echo ""
+    echo "  Deployed features:"
+    echo "    zsh config:   yes"
+    echo "    root config:  $([ "${DEPLOY_ROOTSHELL:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo "    neovim:       $([ "${DEPLOY_NVIM:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo "    git aliases:  $([ "${DEPLOY_GIT:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo "    nano:         $([ "${DEPLOY_NANO:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo "    konsole:      $([ "${DEPLOY_KONSOLE:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo "    tls bridge:   $([ "${DEPLOY_TLS:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo ""
+    if [ -n "${DEV_REPO_URL:-}" ]; then
+        echo "  Dev repo clone:"
+        echo "    URL:    $DEV_REPO_URL"
+        echo "    branch: ${DEV_REPO_BRANCH:-main}"
+        echo "    dest:   ~/$DEV_REPO_NAME"
+    fi
+    if [[ "${DO_BACKUP:-n}" == [yY]* ]]; then
+        echo "  Backup:       ${BACKUP_FILE:-<pulled>}"
+    fi
+    echo ""
+    echo "  Next steps checklist:"
+    echo "  [ ] Verify passwordless login: ssh ${TARGET_USER}@${HOST_ALIAS:-$TARGET_IP}"
+    echo "  [ ] Set up GitHub API key on vulnbox if using HTTPS clone"
+    echo "  [ ] Start services / listeners on vulnbox"
+    echo "  [ ] Configure exploit parameters (paths, tokens, flag IDs)"
+    echo "  [ ] Push/backup changes to GitHub"
+    echo ""
 }
