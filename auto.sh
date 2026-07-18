@@ -175,8 +175,9 @@ select opt in "${options[@]}"; do
                             ;;
                         ask)
                             if has_remote_branch "$url" dev; then
-                                read -rp "  Branch for $name? (M)ain / (D)ev [M]: " _b
-                                case "${_b:-}" in [dD]) echo "dev"; return ;; esac
+                                echo "    1) main    2) dev"
+                                read -rp "  Branch for $name? Enter number or name [main]: " _b
+                                case "${_b:-1}" in 1|[mM]*) echo "main"; return ;; 2|[dD]*) echo "dev"; return ;; esac
                             fi
                             echo "main"
                             ;;
@@ -206,19 +207,20 @@ select opt in "${options[@]}"; do
 
                         if [ "$current_branch" != "$branch" ]; then
                             echo "    Branch switch: $current_branch → $branch"
-                            echo "      (s)tash  — stash local changes, switch, pop stash"
-                            echo "      (r)eset  — discard local changes & hard-switch"
-                            echo "      (a)bort  — skip $name"
-                            read -rp "    How to proceed? [s]: " _conflict
-                            case "${_conflict:-s}" in
-                                r|R)
+                            echo "      1) stash  — stash local changes, switch, pop stash"
+                            echo "      2) reset  — discard local changes & hard-switch"
+                            echo "      3) abort  — skip $name"
+                            echo "      Enter number or name"
+                            read -rp "    How to proceed? [stash]: " _conflict
+                            case "${_conflict:-1}" in
+                                2|[rR]*)
                                     git -C "$dest" checkout -B "$branch" "origin/$branch" 2>/dev/null || \
                                     git -C "$dest" checkout "$branch" 2>/dev/null || true
                                     git -C "$dest" reset --hard "origin/$branch" 2>/dev/null || true
                                     git -C "$dest" clean -fd 2>/dev/null || true
                                     echo "    -> hard reset to origin/$branch"
                                     ;;
-                                a|A)
+                                3|[aA]*)
                                     echo "    -> skipped $name"
                                     return 0
                                     ;;
@@ -289,30 +291,32 @@ select opt in "${options[@]}"; do
 
                 BRANCH_MODE="main"
                 echo "  Branch preference for Pwnzer0tt1 repos:"
-                echo "    (M)ain — stable, recommended"
-                echo "    (D)ev  — latest, may be unstable"
-                echo "    (a)sk  — decide per repo (prompts if dev exists)"
-                read -rp "    Which? [M]: " _branch_choice
-                case "${_branch_choice:-}" in
-                    [dD]) BRANCH_MODE="dev"; echo "  -> using dev branch where available" ;;
-                    [aA]) BRANCH_MODE="ask"; echo "  -> will ask per repo" ;;
-                    *)    echo "  -> using main branch" ;;
+                echo "    1) main  — stable, recommended"
+                echo "    2) dev   — latest, may be unstable"
+                echo "    3) ask   — decide per repo (prompts if dev exists)"
+                echo "    Enter number or name"
+                read -rp "    Which? [main]: " _branch_choice
+                case "${_branch_choice:-1}" in
+                    2|[dD]*) BRANCH_MODE="dev"; echo "  -> using dev branch where available" ;;
+                    3|[aA]*) BRANCH_MODE="ask"; echo "  -> will ask per repo" ;;
+                    *)       BRANCH_MODE="main"; echo "  -> using main branch" ;;
                 esac
                 echo
 
                 while true; do
                     echo
                     echo "  1) exploitfarm    2) digger    3) firegex    4) all    5) back"
+                    echo "  Enter number or name"
                     read -rp "Install/update which? [5]: " _c || true
                     case "${_c:-5}" in
-                        1) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE" ;;
-                        2) install_tool digger      "$URL_digger"      "$BRANCH_MODE" ;;
-                        3) install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
-                        4) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE"
-                           install_tool digger      "$URL_digger"      "$BRANCH_MODE"
-                           install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
-                        5|b|B|q|Q) break ;;
-                        *) echo "  invalid choice — pick 1-5." ;;
+                        1|[eE]*) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE" ;;
+                        2|[dD]*) install_tool digger      "$URL_digger"      "$BRANCH_MODE" ;;
+                        3|[fF]*) install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
+                        4|[aA]*) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE"
+                                install_tool digger      "$URL_digger"      "$BRANCH_MODE"
+                                install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
+                        5|[bBqQ]*) break ;;
+                        *) echo "  invalid choice — pick 1-5 or enter the name." ;;
                     esac
                 done
             ) || true
