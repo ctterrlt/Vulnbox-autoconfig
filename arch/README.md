@@ -63,7 +63,7 @@ Installs (via `yay`, bootstrapping it if absent) zsh, Oh-My-Zsh, sets zsh as the
 | SSH / key / scp prompts | root `sshconf.sh` (shared) |
 | Deploy prompts (local deps, nvim/git/tls/nano/konsole/rootshell/dev, backup) | root `deployconf.sh` (shared) |
 | Target root shell (make the box's root use zsh) | root `root_shell.sh` (shipped + run by the payload) |
-| Selection prompts (keys, git items) | root `selectlib.sh` (shared) |
+| Selection prompts (keys, git items — supports `all`/`a all`/`r all`) | root `selectlib.sh` (shared) |
 
 Config is decoupled from deploy logic — the next run simply re-pushes your edits.
 

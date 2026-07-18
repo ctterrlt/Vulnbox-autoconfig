@@ -128,7 +128,7 @@ that folder's deploy, which walks you through, in order:
 
 1. **SSH target** — reuse a host already in `~/.ssh/config` or enter a new IP / user / port (blank = 22) / alias.
 2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
-3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected); then, if a gitignored `extra_keys.pub` exists at the repo root, optionally copy some or all of those extra keys too.
+3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected); type `all` to select all, `a 3` to add a specific item, `r 2` to remove one, Enter to confirm. Then, if a gitignored `extra_keys.pub` exists at the repo root, optionally copy some or all of those extra keys too (same picker).
 4. **Local Python deps** (`y/N`) — optionally `pip install` the aggregated root `requirements.txt` on **this** machine (your operator PC, where the xfarm exploits run — *not* the vulnbox).
 5. **Neovim**, **git aliases**, **TLS bridge**, **nano config**, **Konsole config**, **target root shell** (default yes — give the box's root your zsh too), **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key); an existing checkout's remote origin is **updated** if the protocol differs from the deployed URL.
 
@@ -159,7 +159,7 @@ changes are active). Full per-prompt detail lives in each distro's README.
 | Konsole config (`~/.config/konsolerc` + profile) | `konsolerc` / `konsole.profile` (shared by all distros) |
 | SSH setup (host reuse, key copy, scp mode) | `sshconf.sh` (shared by all distros) |
 | Deploy prompts (local deps, nvim/git/tls/nano/konsole/dev, backup) | `deployconf.sh` (shared by all distros) |
-| Selection prompts (keys, git items) | `selectlib.sh` (shared by all distros) |
+| Selection prompts (keys, git items — supports `all`/`a all`/`r all`) | `selectlib.sh` (shared by all distros) |
 | Aggregated Python deps | a project's own `requirements.txt` — the root one is auto-generated, never edit it |
 
 Configuration is decoupled from deploy logic, so the next `./auto.sh` simply
