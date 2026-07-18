@@ -240,5 +240,4 @@ fi
 
 post_backup_processing "$BACKUP_FILE"
 
-echo -e "\n=== 5. LOGGING IN ==="
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
+echo "$TARGET_USER:$TARGET_IP:$TARGET_PORT" > /tmp/.vulnbox_target

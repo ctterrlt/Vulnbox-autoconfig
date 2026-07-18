@@ -306,3 +306,22 @@ select opt in "${options[@]}"; do
             ;;
     esac
 done
+
+# ── Post-deploy: prompt to stay in vuln or return to local PC ─────────────────
+if [[ -f /tmp/.vulnbox_target ]]; then
+    IFS=: read -r TARGET_USER TARGET_IP TARGET_PORT < /tmp/.vulnbox_target
+    rm -f /tmp/.vulnbox_target
+
+    echo ""
+    echo "========================================"
+    echo "    DEPLOYMENT COMPLETE                  "
+    echo "========================================"
+    read -r -p "Stay logged into vulnbox? (Y/n) " stay_logged
+    stay_logged=${stay_logged:-Y}
+    if [[ "$stay_logged" == [yY] ]]; then
+        echo -e "\n=== LOGGING IN ==="
+        ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
+    else
+        echo "Returned to local shell."
+    fi
+fi
