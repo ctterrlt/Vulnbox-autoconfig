@@ -70,8 +70,9 @@ exploit — it keeps the same config layout but runs on the vulnbox (see below).
 
 - **One command:** `./auto.sh` handles any supported distro from a single menu.
 - **Zero-touch SSH:** reuse a host already in `~/.ssh/config` or set up a new
-  target, pick exactly which `id_ed25519.pub` key(s) to copy, and get a
-  `~/.ssh/config` entry so you can reconnect later with just `ssh <alias>`.
+  target, pick exactly which `id_ed25519.pub` key(s) to copy (key generated if
+  missing — **prints the .pub key** on screen), and get a `~/.ssh/config` entry
+  so you can reconnect later with just `ssh <alias>`.
 - **One source of truth:** every distro shares the same `zshconfig` and git setup —
   import the git aliases/settings wholesale or pick them item by item.
 - **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch (or Neofetch),
@@ -114,6 +115,11 @@ chmod +x auto.sh
 ./auto.sh
 ```
 
+All prompts accept **numbers or text**: options are shown numbered
+(e.g. `1) main    2) dev`) and you can type the number, the full name, or any
+case variant — `dev`, `Dev`, `DEV`, `d`, `D` or `2` all work. Yes/no prompts
+match full words so `yes`/`Yes`/`YES` / `no`/`No`/`NO` all work.
+
 `auto.sh` first offers to import/refresh the shared git aliases into *your own*
 `~/.gitconfig` (all at once via `include.path`, or item-by-item), then shows the menu.
 Besides the three distros it also has an **"Install/update ExploitFarm tooling"** entry
@@ -124,14 +130,16 @@ that folder's deploy, which walks you through, in order:
 2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
 3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected); then, if a gitignored `extra_keys.pub` exists at the repo root, optionally copy some or all of those extra keys too.
 4. **Local Python deps** (`y/N`) — optionally `pip install` the aggregated root `requirements.txt` on **this** machine (your operator PC, where the xfarm exploits run — *not* the vulnbox).
-5. **Neovim**, **git aliases**, **TLS bridge**, **nano config**, **Konsole config**, **target root shell** (default yes — give the box's root your zsh too), **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key).
+5. **Neovim**, **git aliases**, **TLS bridge**, **nano config**, **Konsole config**, **target root shell** (default yes — give the box's root your zsh too), **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key); an existing checkout's remote origin is **updated** if the protocol differs from the deployed URL.
 
 Steps 4–5 (and the backup prompts) live in the shared **`deployconf.sh`**, sourced by
 all three distro scripts so they stay identical — only the package install itself is
 per-distro. It then installs zsh + tooling (including **`php`** for the PHP-based web
 exploits), sets zsh as the shell, applies the config, optionally pulls the backup
-(saved as `backup_from_<IP>.zip`, never overwriting an existing one), and drops you
-into a live session. Full per-prompt detail lives in each distro's README.
+(saved as `backup_from_<IP>.zip`, never overwriting an existing one), prints a
+**deployment summary** with SSH fingerprint, features deployed, and a checklist,
+and drops you into a live session (explicitly sourcing `~/.zshrc` first so all
+changes are active). Full per-prompt detail lives in each distro's README.
 
 > The remote setup runs `sudo` on the **target**, so any password it asks for is
 > the **vulnbox's**, not your local machine's — the script says so on screen.
