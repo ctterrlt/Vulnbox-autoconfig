@@ -11,7 +11,7 @@ if [ ! -f /.dockerenv ] && \
    [ ! -f /tmp/is_vulnbox ]; then
     echo "!!! DANGER !!! This pushes config to a REMOTE target."
     read -rp "Proceed anyway? (y/N) " confirm
-    [[ $confirm != [yY] ]] && exit 1
+    [[ $confirm != [yY]* ]] && exit 1
 fi
 
 # ── Verify config exists ──────────────────────────────────────────────────────
