@@ -71,8 +71,16 @@ review_selection() {
         esac
 
         # "all" overrides per-number processing.
+        # Mode is determined by the word BEFORE "all" (if any), not by _first,
+        # so that bare "all" → toggle, "a all" → add, "r all" → remove.
         if (( _all_req )); then
-            case "$_mode" in
+            _all_prefix="$(printf '%s' "$_line" | sed -E 's/[[:space:]]*[[:alpha:]]+$//' | sed -E 's/^[[:space:]]*//')"
+            case "${_all_prefix:0:1}" in
+                a|A) _all_mode=add ;;
+                r|R) _all_mode=remove ;;
+                *)   _all_mode=toggle ;;
+            esac
+            case "$_all_mode" in
                 add)
                     __r_sel=()
                     for _n in "${!__r_opts[@]}"; do __r_sel+=("$((_n + 1))"); done

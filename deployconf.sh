@@ -277,22 +277,21 @@ print_summary() {
     echo "  Target:       ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}"
     echo "  Host alias:   ${HOST_ALIAS:-<none>}"
     echo ""
-    echo "  SSH key:      ~/.ssh/id_ed25519.pub"
-    if [ -f "$HOME/.ssh/id_ed25519.pub" ]; then
-        echo "  Key comment:  $(awk '{print $3}' "$HOME/.ssh/id_ed25519.pub")"
-        echo "  Fingerprint:  $(ssh-keygen -lf "$HOME/.ssh/id_ed25519.pub" 2>/dev/null | awk '{print $2}')"
-    fi
+    echo "  Remote host public key(s):"
+    ssh-keyscan -p "$TARGET_PORT" "$TARGET_IP" 2>/dev/null \
+      | while IFS= read -r _line; do echo "    $_line"; done \
+      || echo "    (unavailable)"
     echo "  SCP protocol: $([ -n "${SCP_OPTS-}" ] && echo "legacy (-O)" || echo "modern (SFTP)")"
     echo "  Git protocol: ${GIT_CLONE_PROTOCOL:-https}"
     echo ""
     echo "  Deployed features:"
     echo "    zsh config:   yes"
-    echo "    root config:  $([ "${DEPLOY_ROOTSHELL:-n}" == [yY]* ] && echo "yes" || echo "no")"
-    echo "    neovim:       $([ "${DEPLOY_NVIM:-n}" == [yY]* ] && echo "yes" || echo "no")"
-    echo "    git aliases:  $([ "${DEPLOY_GIT:-n}" == [yY]* ] && echo "yes" || echo "no")"
-    echo "    nano:         $([ "${DEPLOY_NANO:-n}" == [yY]* ] && echo "yes" || echo "no")"
-    echo "    konsole:      $([ "${DEPLOY_KONSOLE:-n}" == [yY]* ] && echo "yes" || echo "no")"
-    echo "    tls bridge:   $([ "${DEPLOY_TLS:-n}" == [yY]* ] && echo "yes" || echo "no")"
+    echo "    root config:  $( [[ "${DEPLOY_ROOTSHELL:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    neovim:       $( [[ "${DEPLOY_NVIM:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    git aliases:  $( [[ "${DEPLOY_GIT:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    nano:         $( [[ "${DEPLOY_NANO:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    konsole:      $( [[ "${DEPLOY_KONSOLE:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    tls bridge:   $( [[ "${DEPLOY_TLS:-n}" == [yY]* ]] && echo "yes" || echo "no")"
     echo ""
     if [ -n "${DEV_REPO_URL:-}" ]; then
         echo "  Dev repo clone:"
