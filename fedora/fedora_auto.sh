@@ -12,7 +12,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f /.dockerenv ] || grep -qE '(docker|containerd|lxc)' /proc/1/cgroup 2>/dev/null; then
     echo "WARNING: This script is intended to be run from your LOCAL PC."
     read -rp "Are you sure? (y/N) " confirm
-    [[ $confirm != [yY] ]] && exit 1
+    [[ $confirm != [yY]* ]] && exit 1
 fi
 
 # ── 2-4. SSH SETUP ────────────────────────────────────────────────────────────
@@ -167,6 +167,11 @@ fi
 # the box needs no GitHub key. An existing checkout is updated, never clobbered.
 if [ -n "${DEV_REPO_URL:-}" ]; then
     if [ -d "$HOME/${DEV_REPO_NAME}/.git" ]; then
+        _cur_url="$(git -C "$HOME/${DEV_REPO_NAME}" remote get-url origin 2>/dev/null || true)"
+        if [ -n "$_cur_url" ] && [ "$_cur_url" != "$DEV_REPO_URL" ]; then
+            echo "  Remote URL changed: $_cur_url → $DEV_REPO_URL"
+            git -C "$HOME/${DEV_REPO_NAME}" remote set-url origin "$DEV_REPO_URL"
+        fi
         echo "~/${DEV_REPO_NAME} is already a git repo — updating ${DEV_REPO_BRANCH}."
         git -C "$HOME/${DEV_REPO_NAME}" fetch origin "${DEV_REPO_BRANCH}" \
             && git -C "$HOME/${DEV_REPO_NAME}" checkout "${DEV_REPO_BRANCH}" \
@@ -179,41 +184,41 @@ if [ -n "${DEV_REPO_URL:-}" ]; then
     fi
 fi
 
-echo "Deployment complete."
+echo -e "\n=== REMOTE DEPLOYMENT COMPLETE ==="
 PAYLOAD_EOF
 
 # ── 5. TRANSFER & EXECUTE ─────────────────────────────────────────────────────
 scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/zshconfig_fedora.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_fedora.conf"
-if [[ $DEPLOY_NVIM == [yY] ]]; then
+if [[ $DEPLOY_NVIM == [yY]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nvimconfig.lua" "${TARGET_USER}@${TARGET_IP}:/tmp/nvimconfig.lua"
 else
     # Clear any stale copy from a previous run so the payload doesn't apply it
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nvimconfig.lua"
 fi
-if [[ $DEPLOY_GIT == [yY] ]]; then
+if [[ $DEPLOY_GIT == [yY]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../gitconfig.conf"     "${TARGET_USER}@${TARGET_IP}:/tmp/gitconfig.conf"
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/gitconfig.conf"
 fi
-if [[ $DEPLOY_NANO == [yY] ]]; then
+if [[ $DEPLOY_NANO == [yY]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nanorc"         "${TARGET_USER}@${TARGET_IP}:/tmp/nanorc"
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nanorc"
 fi
-if [[ $DEPLOY_KONSOLE == [yY] ]]; then
+if [[ $DEPLOY_KONSOLE == [yY]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../konsolerc"       "${TARGET_USER}@${TARGET_IP}:/tmp/konsolerc"
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../konsole.profile" "${TARGET_USER}@${TARGET_IP}:/tmp/konsole.profile"
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/konsolerc /tmp/konsole.profile"
 fi
-if [[ "${DEPLOY_ROOTSHELL:-Y}" != [nN] ]]; then
+if [[ "${DEPLOY_ROOTSHELL:-Y}" != [nN]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../root_shell.sh"   "${TARGET_USER}@${TARGET_IP}:/tmp/root_shell.sh"
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/root_shell.sh"
 fi
 # Always clear any stale bridge from a previous run; recopy the whole folder on opt-in.
 ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -rf /tmp/tls_bridge"
-if [[ $DEPLOY_TLS == [yY] ]]; then
+if [[ $DEPLOY_TLS == [yY]* ]]; then
     scp $SCP_OPTS -r -P "$TARGET_PORT" "$DIR/../python_exploits/tls" "${TARGET_USER}@${TARGET_IP}:/tmp/tls_bridge"
 fi
 scp $SCP_OPTS -P "$TARGET_PORT" /tmp/vulnbox_payload.sh      "${TARGET_USER}@${TARGET_IP}:/tmp/setup.sh"
@@ -240,5 +245,6 @@ else
 fi
 
 post_backup_processing "$BACKUP_FILE"
+print_summary
 
 echo "$TARGET_USER:$TARGET_IP:$TARGET_PORT" > /tmp/.vulnbox_target
