@@ -158,8 +158,8 @@ changes are active). Full per-prompt detail lives in each distro's README.
 | nano config (`~/.nanorc`) | `nanorc` (shared by all distros) |
 | Konsole config (`~/.config/konsolerc` + profile) | `konsolerc` / `konsole.profile` (shared by all distros) |
 | SSH setup (host reuse, key copy, scp mode) | `sshconf.sh` (shared by all distros) |
-| Deploy prompts (local deps, nvim/git/tls/nano/konsole/dev, backup); `print_summary` shows remote host keys via `ssh-keyscan` | `deployconf.sh` (shared by all distros) |
-| Selection prompts (keys, git items — bare `all` toggles, `a all`/`r all` adds/removes all) | `selectlib.sh` (shared by all distros) |
+| Deploy prompts (local deps, nvim/git/tls/nano/konsole/dev, backup); `print_summary` shows remote host keys via `ssh-keyscan` (comment lines filtered out) | `deployconf.sh` (shared by all distros) |
+| Selection prompts (keys, git items — bare `all` toggles, `a all`/`r all` adds/removes all, bare `a`/`r` = `a all`/`r all`) | `selectlib.sh` (shared by all distros) |
 | Aggregated Python deps | a project's own `requirements.txt` — the root one is auto-generated, never edit it |
 
 Configuration is decoupled from deploy logic, so the next `./auto.sh` simply
