@@ -238,6 +238,7 @@ echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, e
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
 ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DO_GIT_INIT_REMOTE='$DO_GIT_INIT_REMOTE' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
 
+BACKUP_FILE=""
 if [[ $DO_BACKUP == y ]]; then
     echo -e "\n=== 4. PULLING BACKUP ==="
     # Don't clobber an existing archive — fall back to _1, _2, … if the name is taken.
