@@ -50,10 +50,10 @@ if [[ -f "$GIT_CONF_SRC" ]]; then
     CURRENT_INCLUDES=$(git config --global --get-all include.path 2>/dev/null || true)
 
     read -r -p "Import/refresh Vulnbox Git config into your ~/.gitconfig? (y/N) " link_aliases
-    if [[ "$link_aliases" == [yY] ]]; then
+    if [[ "$link_aliases" == [yY]* ]]; then
         read -r -p "Import [a]ll, or choose [i]tem per item? (a/i) [a]: " git_mode
         git_mode=${git_mode:-a}
-        if [[ "$git_mode" == [iI] ]]; then
+        if [[ "$git_mode" == [iI]* ]]; then
             # Per-item: read each entry's value from the source via git itself
             # (no manual ini parsing — keeps complex values like 'lg' intact),
             # then apply only the chosen ones to ~/.gitconfig.
@@ -110,9 +110,9 @@ fi
 # the target (via deployconf.sh, which sources this env var).
 GIT_CLONE_PROTOCOL="${GIT_CLONE_PROTOCOL:-https}"
 echo ""
-read -rp "Preferred git clone protocol? ([S]SH / [H]TTPS) [H]: " _clone_proto
+read -rp "Protocol for cloning onto the vulnbox (and for Pwnzer0tt1 clones)? ([S]SH / [H]TTPS) [H]: " _clone_proto
 case "${_clone_proto:-}" in
-    [sS]) GIT_CLONE_PROTOCOL="ssh"; echo "  -> using SSH for git clones" ;;
+    [sS]*) GIT_CLONE_PROTOCOL="ssh"; echo "  -> using SSH for git clones" ;;
     *)    GIT_CLONE_PROTOCOL="https"; echo "  -> using HTTPS for git clones" ;;
 esac
 export GIT_CLONE_PROTOCOL
@@ -277,7 +277,7 @@ select opt in "${options[@]}"; do
                     branch="$(resolve_branch "$name" "$url" "$mode")"
                     ensure_repo "$name" "$url" "$branch"
                     read -rp "    Build $name now? (heavy — recompiles from source) [y/N]: " _b || true
-                    [[ "${_b:-}" == [yY] ]] && build_repo "$name"
+                    [[ "${_b:-}" == [yY]* ]] && build_repo "$name"
                     [ "$name" = "exploitfarm" ] && echo "    Start ExploitFarm with:  cd '$PWNZER_DIR/exploitfarm' && python3 run.py start --prebuilt"
                     return 0
                 }
@@ -342,9 +342,10 @@ if [[ -f /tmp/.vulnbox_target ]]; then
     echo "========================================"
     read -r -p "Stay logged into vulnbox? (Y/n) " stay_logged
     stay_logged=${stay_logged:-Y}
-    if [[ "$stay_logged" == [yY] ]]; then
+    if [[ "$stay_logged" == [yY]* ]]; then
         echo -e "\n=== LOGGING IN ==="
-        ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "exec zsh"
+        echo "(reloading zsh config via 'zsh' alias = source ~/.zshrc)"
+        ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "cd ~ && exec zsh -c 'source ~/.zshrc && exec zsh -i'"
     else
         echo "Returned to local shell."
     fi
