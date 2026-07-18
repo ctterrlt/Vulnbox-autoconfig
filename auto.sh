@@ -125,7 +125,16 @@ echo "========================================"
 PS3="Select an option: "
 options=("Arch" "Debian/Ubuntu" "Fedora" "Install/update ExploitFarm tooling (exploitfarm/digger/firegex)" "Quit")
 
+_menu_first=1
 select opt in "${options[@]}"; do
+    # Reprint menu after returning from a sub-menu (select only prints it on the first pass)
+    if (( ! _menu_first )); then
+        echo ""
+        for _i in "${!options[@]}"; do
+            printf "%d) %s\n" "$((_i + 1))" "${options[$_i]}"
+        done
+    fi
+    _menu_first=0
     case $opt in
         "Arch")
             "$SCRIPT_DIR/arch/arch_auto.sh"
