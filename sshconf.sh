@@ -34,11 +34,11 @@ if [[ -f "$SSH_CONF" ]]; then
                 # Host matched but has no usable HostName/User in the config.
                 echo "[!] No match: '${HOST_ALIAS}' has no HostName/User defined in ~/.ssh/config."
                 read -rp "    [a]bort, or [m]anually enter IP/user? (a/m) [m]: " NOMATCH
-                if [[ "$NOMATCH" == [aA] ]]; then echo "Aborted."; exit 1; fi
+                if [[ "$NOMATCH" == [aA]* ]]; then echo "Aborted."; exit 1; fi
             else
                 echo "[OK] Selected '${HOST_ALIAS}' -> ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}"
                 read -rp "    Use this host? [Y]es / [n]o (enter target manually): " HOST_OK
-                if [[ "$HOST_OK" == [nN] ]]; then
+                if [[ "$HOST_OK" == [nN]* ]]; then
                     echo "    -> entering target manually."
                 else
                     REUSED_HOST=1
@@ -48,7 +48,7 @@ if [[ -f "$SSH_CONF" ]]; then
             # Non-empty input that isn't a valid list number.
             echo "[!] No match: '${HOST_PICK}' is not one of the listed hosts."
             read -rp "    [a]bort, or [m]anually enter IP/user? (a/m) [m]: " NOMATCH
-            if [[ "$NOMATCH" == [aA] ]]; then echo "Aborted."; exit 1; fi
+            if [[ "$NOMATCH" == [aA]* ]]; then echo "Aborted."; exit 1; fi
         fi
     fi
 fi
@@ -78,7 +78,7 @@ else
     _write_host=1
     if grep -qiE "^[[:space:]]*Host[[:space:]]+${HOST_ALIAS}([[:space:]]|\$)" "$SSH_CONF" 2>/dev/null; then
         read -rp "Host '${HOST_ALIAS}' already exists in ~/.ssh/config — overwrite it? [y/N]: " _ovw
-        if [[ "${_ovw:-}" == [yY] ]]; then
+        if [[ "${_ovw:-}" == [yY]* ]]; then
             # Drop the existing 'Host <alias>' block (its Host line + following lines,
             # up to the next Host entry), then append the fresh one below.
             _tmp="$(mktemp)"
@@ -112,7 +112,7 @@ fi
 echo -e "\n=== SCP PROTOCOL ==="
 echo "Legacy mode (scp -O) is the most compatible — recommended for vulnboxes."
 read -rp "Use legacy scp protocol (-O)? [Y]es (Enter) / [n]o (modern SFTP): " _scp_legacy
-if [[ "$_scp_legacy" == [nN] ]]; then
+if [[ "$_scp_legacy" == [nN]* ]]; then
     SCP_OPTS=""
     echo "[OK] Using modern SFTP-based scp."
 else
@@ -128,8 +128,12 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
     if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
         echo "No SSH key found. Generating a new passwordless Ed25519 key..."
         ssh-keygen -t ed25519 -N "" -f "$HOME/.ssh/id_ed25519"
+        echo "  -> Generated public key:"
+        cat "$HOME/.ssh/id_ed25519.pub"
     else
         echo "Existing SSH key found at ~/.ssh/id_ed25519. Skipping generation."
+        echo "  -> Current public key:"
+        cat "$HOME/.ssh/id_ed25519.pub"
     fi
 
     # ~/.ssh/id_ed25519.pub may hold several public keys. Let the operator pick
@@ -178,7 +182,7 @@ if [[ "${SKIP_SSH:-0}" != "1" ]]; then
             echo -e "\n=== EXTRA KEYS FILE ==="
             echo "Found $EXTRA_KEYS_FILE with ${#EXTRA_LINES[@]} key(s)."
             read -rp "Also copy key(s) from this file to the target? [y/N]: " _use_extra
-            if [[ "$_use_extra" == [yY] ]]; then
+            if [[ "$_use_extra" == [yY]* ]]; then
                 EXTRA_OPTS=()
                 for _line in "${EXTRA_LINES[@]}"; do
                     _type="$(awk '{print $1}' <<< "$_line")"
