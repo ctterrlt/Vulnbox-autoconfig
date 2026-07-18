@@ -277,11 +277,11 @@ print_summary() {
     echo "  Target:       ${TARGET_USER}@${TARGET_IP}:${TARGET_PORT}"
     echo "  Host alias:   ${HOST_ALIAS:-<none>}"
     echo ""
-    echo "  Remote host public key(s):"
-    ssh-keyscan -p "$TARGET_PORT" "$TARGET_IP" 2>/dev/null \
-      | grep -v '^#' \
-      | while IFS= read -r _line; do echo "    $_line"; done \
-      || echo "    (unavailable)"
+    echo "  id_ed25519.pub on target:"
+    ssh -n -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+      -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" \
+      'cat ~/.ssh/id_ed25519.pub 2>/dev/null || echo "(file not found on target)"' \
+      2>/dev/null | sed 's/^/    /' || echo "    (unreachable)"
     echo "  SCP protocol: $([ -n "${SCP_OPTS-}" ] && echo "legacy (-O)" || echo "modern (SFTP)")"
     echo "  Git protocol: ${GIT_CLONE_PROTOCOL:-https}"
     echo ""
