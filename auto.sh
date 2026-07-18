@@ -105,6 +105,18 @@ else
     echo ""
 fi
 
+# ── Git clone protocol preference ─────────────────────────────────────────────
+# Ask once: applies to both local Pwnzer0tt1 clones and the dev-repo clone on
+# the target (via deployconf.sh, which sources this env var).
+GIT_CLONE_PROTOCOL="${GIT_CLONE_PROTOCOL:-https}"
+echo ""
+read -rp "Preferred git clone protocol? ([S]SH / [H]TTPS) [H]: " _clone_proto
+case "${_clone_proto:-}" in
+    [sS]) GIT_CLONE_PROTOCOL="ssh"; echo "  -> using SSH for git clones" ;;
+    *)    GIT_CLONE_PROTOCOL="https"; echo "  -> using HTTPS for git clones" ;;
+esac
+export GIT_CLONE_PROTOCOL
+
 # ── Main Deployment Menu ──────────────────────────────────────────────────────
 echo "========================================"
 echo "    VULNBOX MASTER DEPLOYMENT CENTER    "
@@ -134,9 +146,17 @@ select opt in "${options[@]}"; do
                 set +euo pipefail 2>/dev/null || true
                 PWNZER_DIR="${PWNZER_DIR:-$HOME/pwnzerotti}"
 
-                URL_exploitfarm="https://github.com/Pwnzer0tt1/exploitfarm"
-                URL_digger="https://github.com/Pwnzer0tt1/digger"
-                URL_firegex="https://github.com/Pwnzer0tt1/firegex"
+                github_url() {
+                    local repo="$1"
+                    if [[ "${GIT_CLONE_PROTOCOL:-https}" == "ssh" ]]; then
+                        echo "git@github.com:${repo}"
+                    else
+                        echo "https://github.com/${repo}"
+                    fi
+                }
+                URL_exploitfarm=$(github_url "Pwnzer0tt1/exploitfarm")
+                URL_digger=$(github_url "Pwnzer0tt1/digger")
+                URL_firegex=$(github_url "Pwnzer0tt1/firegex")
 
                 has_remote_branch() {
                     local url="$1" branch="$2"
