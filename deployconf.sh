@@ -279,6 +279,7 @@ print_summary() {
     echo ""
     echo "  Remote host public key(s):"
     ssh-keyscan -p "$TARGET_PORT" "$TARGET_IP" 2>/dev/null \
+      | grep -v '^#' \
       | while IFS= read -r _line; do echo "    $_line"; done \
       || echo "    (unavailable)"
     echo "  SCP protocol: $([ -n "${SCP_OPTS-}" ] && echo "legacy (-O)" || echo "modern (SFTP)")"

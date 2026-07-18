@@ -100,6 +100,15 @@ review_selection() {
         fi
 
         if (( ${#_nums[@]} == 0 )); then
+            # Bare 'a' or 'r' with no numbers = add/remove all.
+            if [[ "$_mode" == add ]]; then
+                __r_sel=()
+                for _n in "${!__r_opts[@]}"; do __r_sel+=("$((_n + 1))"); done
+                continue
+            elif [[ "$_mode" == remove ]]; then
+                __r_sel=()
+                continue
+            fi
             echo "    (enter a number, e.g. '2', or 'all')"
             continue
         fi
