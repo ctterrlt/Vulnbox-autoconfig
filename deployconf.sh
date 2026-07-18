@@ -282,7 +282,7 @@ print_summary() {
         echo "  Key comment:  $(awk '{print $3}' "$HOME/.ssh/id_ed25519.pub")"
         echo "  Fingerprint:  $(ssh-keygen -lf "$HOME/.ssh/id_ed25519.pub" 2>/dev/null | awk '{print $2}')"
     fi
-    echo "  SCP protocol: $([ "${SCP_OPTS:--O}" = "-O" ] && echo "legacy (-O)" || echo "modern (SFTP)")"
+    echo "  SCP protocol: $([ -n "${SCP_OPTS-}" ] && echo "legacy (-O)" || echo "modern (SFTP)")"
     echo "  Git protocol: ${GIT_CLONE_PROTOCOL:-https}"
     echo ""
     echo "  Deployed features:"
