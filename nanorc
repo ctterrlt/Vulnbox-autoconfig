@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Shared nano config — deployed to ~/.nanorc on the target (opt-in).
 #
 # Per-user ~/.nanorc is used (not the system-wide /etc/nanorc) because:

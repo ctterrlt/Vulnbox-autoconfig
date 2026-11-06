@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # pre-commit — keep the repo-root requirements.txt in sync with every
 # */requirements.txt. Whenever a commit touches any sub-requirements.txt (or

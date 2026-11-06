@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[DEFAULT]
+# Rilascia il ban dopo 1 ora (3600 secondi)
+bantime = 3600
+
+# Cerca tentativi falliti in una finestra di 10 minuti
+findtime = 600
+
+# Blocca l'IP dopo 5 tentativi falliti
+maxretry = 5
+
+# Backend log systemd
+backend = systemd
+
+[sshd]
+enabled = true
+port = 22222
+logpath = %(sshd_log)s
+backend = systemd

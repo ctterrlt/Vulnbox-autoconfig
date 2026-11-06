@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Shared Konsole profile — deployed to ~/.local/share/konsole/Vulnbox.profile
 # (opt-in). Referenced as DefaultProfile by the shipped konsolerc.
 [Appearance]

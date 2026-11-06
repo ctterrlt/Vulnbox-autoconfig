@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Shared Konsole config — deployed to ~/.config/konsolerc on the target (opt-in).
 #
 # Konsole is KDE's terminal. We DON'T install it (vulnboxes are usually headless),

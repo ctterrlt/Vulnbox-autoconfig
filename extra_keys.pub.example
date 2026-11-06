@@ -1,0 +1,3 @@
+# Add teammate public SSH keys here, one key per line.
+# Example format: ssh-ed25519 <base64-public-key> user@host
+# This template intentionally contains no personal keys or email addresses.

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # root_shell.sh — make root use the SAME zsh setup as you, so `sudo su` (and any
 # root shell) keeps your prompt, aliases, plugins, PATH and config instead of
 # dropping to a bare bash. `sudo su` always starts ROOT's account shell, not yours,
@@ -15,7 +16,7 @@
 #   * sets root's login shell to zsh        (undo: sudo chsh -s /bin/bash root)
 #   * installs Oh-My-Zsh into /root/.oh-my-zsh if missing
 #   * symlinks your dotfiles into /root so root shares them and they stay in sync:
-#       ~/.zshrc ~/.nanorc ~/.gitconfig(_vulnbox) ~/.vimrc ~/.config/nvim
+#       ~/.zshrc ~/.bashrc_vulnbox ~/.nanorc ~/.gitconfig(_vulnbox) ~/.vimrc ~/.config/nvim
 #       (undo: sudo rm the matching /root/<file>)
 #   * COPIES ~/.ssh/config + your identity key(s) + known_hosts into /root/.ssh
 #     (ssh refuses a config it doesn't own, so these are copied, not symlinked —
@@ -108,6 +109,32 @@ link_dotfile() {            # $1 = path relative to home, e.g. .nanorc or .confi
 for _f in .nanorc .gitconfig .gitconfig_vulnbox .vimrc .config/nvim; do
     link_dotfile "$_f"
 done
+
+# Keep Bash aliases available to root too. The alias file is shared by symlink;
+# add a managed source block to root's own .bashrc without replacing its contents.
+if [ -f "$CALLER_HOME/.bashrc_vulnbox" ]; then
+    link_dotfile .bashrc_vulnbox
+    if [ -L /root/.bashrc ]; then
+        # A linked caller .bashrc already contains the installer's managed block.
+        echo "[OK] root shares the caller's Bash aliases through the linked .bashrc."
+    else
+        touch /root/.bashrc
+        _bash_marker="# >>> Vulnbox-AutoConfig Bash aliases >>>"
+        if ! grep -Fq "$_bash_marker" /root/.bashrc; then
+            _bashrc_tmp="$(mktemp /root/.bashrc.XXXXXX)"
+            {
+                printf '%s\n' \
+                    "$_bash_marker" \
+                    '[ -r "$HOME/.bashrc_vulnbox" ] && . "$HOME/.bashrc_vulnbox"' \
+                    '# <<< Vulnbox-AutoConfig Bash aliases <<<'
+                cat /root/.bashrc
+            } > "$_bashrc_tmp"
+            chmod --reference=/root/.bashrc "$_bashrc_tmp"
+            mv "$_bashrc_tmp" /root/.bashrc
+        fi
+        echo "[OK] root Bash aliases enabled through /root/.bashrc."
+    fi
+fi
 
 # ── 6. SSH config + keys for root ─────────────────────────────────────────────
 # ssh REFUSES a config/key dir it doesn't own (StrictModes), so these can't be

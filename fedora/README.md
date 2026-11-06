@@ -1,76 +1,100 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Purpose: Fedora automated remote deployment guide and maintenance reference. -->
+
 # 👒 Fedora Vulnbox AutoConfig
 
-Automated deploy of zsh + CTF tooling to a **Fedora / RHEL-based** target over SSH.
-**Run from your local PC — never on the target.**
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue?style=flat-square)](../LICENSE)
+[![Platform: Fedora](https://img.shields.io/badge/platform-Fedora-51A2DA?style=flat-square&logo=fedora&logoColor=white)](https://fedoraproject.org)
+[![Shell: Zsh](https://img.shields.io/badge/shell-zsh%20%7C%20oh--my--zsh-orange?style=flat-square)](../README.md)
 
-## Deploy
+Automated remote deployment suite for provisioning, configuring, and hardening **Fedora** and **RHEL-based** targets over SSH. Built for Attack/Defense CTFs to transform fresh or reset instances into operational operator environments in seconds.
 
-**Master (recommended)** — from the repo root:
+> **Execution Boundary:** Run the remote deployment scripts locally. The standalone `zshinstall_fedora.sh` runs on the Fedora host it configures.
 
+---
+
+## Deployment Modes
+
+### 1. Master Menu (Recommended)
+From the repository root:
 ```bash
-./auto.sh        # then pick "Fedora"
+./auto.sh        # Select "Fedora" from the interactive menu
 ```
+The master orchestrator handles Git configuration imports, refreshes exploit dependencies, and transitions directly into the Fedora deployment flow.
 
-`auto.sh` first offers to import the shared git aliases into *your* `~/.gitconfig`, then hands off to this distro's script.
-
-**Direct** — bypass the master menu (and the operator git-import step):
-
+### 2. Direct Distro Execution
+Bypass the top-level menu to target Fedora directly:
 ```bash
 cd fedora && ./fedora_auto.sh
 ```
 
-Set `SKIP_SSH=1` to skip key generation/copy when your key is already on the box (the remaining prompts still run — they're needed downstream).
+> [!TIP]
+> If your SSH key is already installed on the target, skip key generation and distribution:
+> ```bash
+> SKIP_SSH=1 ./fedora_auto.sh
+> ```
 
-## What it asks, in order
+---
 
-1. **SSH target** — reuse a host already in `~/.ssh/config` (pick by number → prefilled via `ssh -G` → confirm; an unknown pick or a host with no user → *no match* → abort or type it by hand), or enter a new IP / user / port (blank = `22`) / alias. A new target's `~/.ssh/config` entry is written for you; if the alias you pick already exists, it asks whether to **overwrite** it (reusing an existing host leaves its entry untouched).
-2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP. Legacy avoids `subsystem request failed on channel 0` on boxes whose `sshd` lacks the SFTP subsystem (e.g. right after an OpenSSH upgrade mid-deploy).
-3. **Keys** — lists the public keys in `~/.ssh/id_ed25519.pub` with your own pre-selected. Type a number to toggle it, `a`/`r` + numbers to force add/remove, Enter to confirm. Your `.pub` is never modified, and keys already on the target are skipped. **Then**, if a gitignored **`extra_keys.pub`** (repo root) holds more public keys (e.g. teammates'), it offers to copy some or all of those too, with the same picker — all selected keys go to the target in one shot.
-4. **Local Python deps** (`y/N`) — optionally `pip install` the aggregated root `requirements.txt` on **this** machine (your operator PC, where the xfarm exploits run — *never* the vulnbox). Skip it if your attack box is already set up.
-5. **Neovim** (`y/N`) — install Neovim (only if missing/outdated) and drop `nvimconfig.lua` at `~/.config/nvim/init.lua`.
-6. **Git aliases** (`y/N`) — copy `gitconfig.conf` to the target's `~/.gitconfig_vulnbox` and link it via `include.path`.
-7. **TLS bridge** (`y/N`, default no) — copy the whole `python_exploits/tls` folder to `~/tls_bridge` on the target (the bridge is meant to run ON the vulnbox). Nothing is installed — its runtime is stdlib-only; configure and start it on the box with `cd ~/tls_bridge && ./auto_tls.sh && python3 tls.py` (add `-d` to keep it running after you close the terminal — see the bridge's README).
-8. **nano config** (`y/N`, default no) — drop the shared `nanorc` to the target's `~/.nanorc` (per-user — no root, read after `/etc/nanorc` so it overrides without clobbering it): line numbers, syntax highlight, sane defaults.
-9. **Konsole config** (`y/N`, default no) — drop `konsolerc` → `~/.config/konsolerc` and the profile → `~/.local/share/konsole/Vulnbox.profile`. Konsole isn't installed (vulnboxes are usually headless) — the files are harmless if absent, ready if it's present. The konsolerc shortcuts are a static baseline; the deployed `.zshrc` also **live-syncs** Konsole's `[Shortcuts]` from an `Action=Key` text file you maintain (`~/Documents/konsole/shortcuts.txt`, `~/Documenti/…`, or `KONSOLE_SHORTCUTS=`), re-applying it on the next shell whenever it changes.
-10. **Target root shell** (`Y/n`, **default yes**) — also give the box's **root** this zsh setup (ships `root_shell.sh`, run by the payload as `sudo bash root_shell.sh $USER`): chsh root → zsh, Oh-My-Zsh for root, your `~/.zshrc`/`.nanorc`/`.gitconfig`/`nvim` symlinked into `/root` and your `~/.ssh` config+keys copied there, so `sudo su` / `su -` on the box keep your shell *and* nano/ssh/git config instead of a bare bash. Skipped automatically if you deploy *as* root. You're never left in a root shell — the deploy still logs you in as your normal user at the end.
-11. **Dev checkout** (`y/N`, default no) — once setup finishes, clone this toolkit's own `dev` branch onto the target into `~/<repo>` (repo name taken from your `origin`, e.g. `~/Vulnbox-autoconfig`). The clone URL is derived from `origin` and rewritten to HTTPS so the box needs no GitHub key; an existing checkout's **remote origin is updated** if the protocol differs from the deployed URL, then it does `fetch` / `checkout` / `pull --ff-only`.
-12. **Backup** (`y/N`) — lists the target's home, then asks which folder(s) to zip: a name under home (`Immagini`), a `~` path (`~/Immagini`), or an absolute path (`/var/www`); a trailing slash is fine and blank = whole home. Your picks are echoed as resolved paths (`~/Immagini/`) to confirm or re-enter. Finally pick where to save it locally (default `$HOME`); it's pulled as `backup_from_<IP>.zip`, with `_1`, `_2`, … appended so an existing file is never overwritten.
+## Interactive Deployment Pipeline
 
-> Steps **4–12** are driven by the shared **`deployconf.sh`** (sourced by every distro's deploy script right after the SSH setup), so all three distros prompt identically — only the package install itself is per-distro.
+The Fedora deployment routine executes the following phases in sequence:
 
-> The remote setup runs `sudo` **on the target** — any password it asks for is the **vulnbox's**, not your local machine's. The script says so on screen.
+1. **SSH Target Resolution (`sshconf.sh`):** Discovers existing `~/.ssh/config` hosts via `ssh -G` or prompts for IP, user, port (default `22`), and an alias, creating persistent configuration.
+2. **SCP Transport Mode:** Prompts for legacy SCP (`-O`, default) vs. SFTP to prevent channel errors on stripped remote SSH daemons.
+3. **Key Distribution (`selectlib.sh`):** Interactive toggle for `~/.ssh/id_ed25519.pub` and optional team keys from the local, gitignored `../extra_keys.pub` (seeded empty from [`extra_keys.pub.example`](../extra_keys.pub.example); add intended keys locally). Appends keys atomically with remote `chmod 700 ~/.ssh` and `chmod 600 authorized_keys`.
+4. **Local Exploit Dependencies (`y/N`):** Optionally runs `pip install -r requirements.txt` on your operator machine.
+5. **Neovim Configuration (`y/N`):** Deploys [`nvimconfig.lua`](../nvimconfig.lua) to `~/.config/nvim/init.lua` and ensures `neovim` is installed.
+6. **Git Aliases (`y/N`):** Deploys [`gitconfig.conf`](../gitconfig.conf) to `~/.gitconfig_vulnbox` and links it via `include.path`.
+7. **Defensive TLS Bridge (`y/N`):** Copies [`python_exploits/tls`](../python_exploits/tls) to `~/tls_bridge` on the target for traffic inspection.
+8. **nano Configuration (`y/N`):** Deploys [`nanorc`](../nanorc) to `~/.nanorc` with syntax highlighting and sane indentation.
+9. **Konsole Profile & Shortcuts (`y/N`):** Deploys [`konsolerc`](../konsolerc) and [`konsole.profile`](../konsole.profile) with automated background shortcut sync.
+10. **SSH Daemon Hardening (`y/N`):** Validates and installs [`sshd_00-custom-ssh.conf`](../sshd_00-custom-ssh.conf) at `/etc/ssh/sshd_config.d/00-custom-ssh.conf`. It allows the active connection port plus 22222 and disables password/root login; confirm key access first.
+11. **nftables Firewall (`y/N`):** Adds a dedicated strict-input table to the Fedora nftables service config (`/etc/sysconfig/nftables.conf`) with VPN interface allowlisting (`wt0`, `tailscale0`, `100.64.0.0/10`). This can block the current connection and other inbound services.
+12. **Fail2ban Jail (`y/N`):** Validates and installs [`fail2ban_jail.local`](../fail2ban_jail.local) with the systemd backend and one-hour bans for SSH on port 22222 plus the active target port.
+13. **sysctl Hardening (`y/N`):** Deploys [`sysctl_90-no-ping.conf`](../sysctl_90-no-ping.conf) to `/etc/sysctl.d/90-no-ping.conf` to suppress ICMP echo replies.
+14. **Target Root Shell (`Y/n`, default yes):** Ships [`root_shell.sh`](../root_shell.sh) so `sudo su` mirrors Zsh/Bash aliases and selected dotfiles; configured SSH identities are copied into `/root/.ssh`.
+15. **Dev Repository Clone (`y/N`):** Clones this toolkit onto the box via HTTPS for remote debugging.
+16. **Remote Backup (`y/N`):** Interactively inspects remote directories, creates `backup.zip`, and downloads it as `backup_from_<IP>.zip` (with a numeric suffix if that file exists).
 
-## What it installs
+The deployment also installs `bashconfig_fedora.conf` as `~/.bashrc_vulnbox` and enables it through a managed block in an existing regular `~/.bashrc`.
 
-Installs (via `dnf`) zsh, Oh-My-Zsh, sets zsh as the login shell, and applies `zshconfig_fedora.conf` as `~/.zshrc`. Core packages — including **`php`** (runtime for the PHP-based web exploits) and `zsh-syntax-highlighting` + `zsh-autosuggestions` so typed commands are colorized — plus the cosmetic extras `fastfetch lsd tty-clock cmatrix` (via `dnf --skip-unavailable`, so a missing one is dropped, never fatal). The deployed `.zshrc` also prepends the sbin dirs (`/usr/local/sbin /usr/sbin /sbin`) to `PATH` when missing, so admin tools (`ip`, `ss`, `iptables`, `fdisk`, …) resolve on minimal distros — e.g. **antiX** — that leave sbin off a normal user's PATH. After the deploy it prints a **deployment summary** (SSH fingerprint, features deployed, checklist) and drops you into a live session (explicitly sourcing `~/.zshrc` first so all changes are active); reconnect any time with `ssh <alias>`.
+---
 
-## Other entry points
+## Package Provisioning
 
-- **Re-push config only** (no reinstall): `./zshchangeconf_fedora.sh` — uploads `zshconfig_fedora.conf` and applies it to `~/.zshrc`.
-- **Standalone manual install** (run ON the box you're already sitting on): `./zshinstall_fedora.sh`.
+Fedora provisioning utilizes `dnf` with non-interactive defaults:
+- **Core Packages:** `zip`, `zsh`, `nano`, `git`, `curl`, `zsh-syntax-highlighting`, `zsh-autosuggestions`, `openssh-server`, and `php` (required for PHP-based web exploit helpers).
+- **Cosmetic Utilities (Best-Effort):** `fastfetch`, `lsd`, `tty-clock`, and `cmatrix` installed in a single transaction via `dnf install -y --skip-unavailable`.
+- **Path Hardening:** Deployed `.zshrc` dynamically prepends `/usr/local/sbin`, `/usr/sbin`, and `/sbin` to `$PATH`.
 
-## Maintain
+---
 
-| To change… | Edit… |
-|---|---|
-| Shell aliases / prompt / plugins | `zshconfig_fedora.conf` |
-| Packages / install logic | `fedora_auto.sh` |
-| Neovim config | root `nvimconfig.lua` (shared) |
-| Git aliases | root `gitconfig.conf` (shared) |
-| nano config (`~/.nanorc`) | root `nanorc` (shared) |
-| Konsole config (`~/.config/konsolerc` + profile) | root `konsolerc` / `konsole.profile` (shared) |
-| sbin on PATH / shell behaviour | `zshconfig_fedora.conf` |
-| SSH / key / scp prompts | root `sshconf.sh` (shared) |
-| Deploy prompts (local deps, nvim/git/tls/nano/konsole/rootshell/dev, backup) | root `deployconf.sh` (shared) |
-| Target root shell (make the box's root use zsh) | root `root_shell.sh` (shipped + run by the payload) |
-| Selection prompts (keys, git items — supports `all`/`a all`/`r all`) | root `selectlib.sh` (shared) |
+## Alternative Entry Points
 
-Config is decoupled from deploy logic — the next run simply re-pushes your edits.
+- **Configuration Re-Push (No Reinstall):**
+  ```bash
+  ./zshchangeconf_fedora.sh
+  ```
+- **Local Standalone Installer (Run directly on a Fedora host):**
+  ```bash
+  ./zshinstall_fedora.sh
+  ```
 
-## Critical rules
+---
 
-- **Local only:** run from your local PC; the script warns if it detects a container.
-- **Remote sudo password** = the vulnbox's, not your local machine's.
-- **Right config for the distro:** don't deploy Fedora configs to an Arch/Debian box.
-- **Make scripts executable** after moving them: `chmod +x *.sh`.
-- **Package availability:** `fastfetch`, `lsd`, and `tty-clock` may not be in the default Fedora repos. The deploy installs the cosmetic extras with `dnf --skip-unavailable`, so a missing package is dropped instead of aborting the run (dnf5 otherwise fails the whole transaction). Enable RPM Fusion or install them manually if you want the ones your release lacks. (`neofetch` was dropped — discontinued and gone from Fedora's repos; the shell runs `fastfetch` instead.)
+## Maintenance & File Mapping
+
+| Component | Target File | Repository Source |
+| :--- | :--- | :--- |
+| Shell Configuration | `~/.zshrc` | `zshconfig_fedora.conf` |
+| Bash Aliases | `~/.bashrc_vulnbox` and managed source block in `~/.bashrc` | `bashconfig_fedora.conf` via `../install_bash_config.sh` |
+| Neovim Config | `~/.config/nvim/init.lua` | `../nvimconfig.lua` |
+| Git Aliases | `~/.gitconfig_vulnbox` | `../gitconfig.conf` |
+| nano Config | `~/.nanorc` | `../nanorc` |
+| Konsole Shortcuts | `~/.config/konsolerc` | `../konsolerc` |
+| SSH Hardening | `/etc/ssh/sshd_config.d/00-custom-ssh.conf` | `../sshd_00-custom-ssh.conf` |
+| nftables Firewall | `/etc/sysconfig/nftables.conf` | `../nftables.conf` via `../apply_hardening.sh` |
+| Fail2ban Jail | `/etc/fail2ban/jail.local` | `../fail2ban_jail.local` |
+| sysctl Kernel Hardening | `/etc/sysctl.d/90-no-ping.conf` | `../sysctl_90-no-ping.conf` |
+| Root Shell Parity | `/root/.*` | `../root_shell.sh` |

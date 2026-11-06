@@ -1,32 +1,21 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Standalone manual install — runs ON the target box.
 # Keep package list aligned with arch_auto.sh payload.
 set -euo pipefail
-
-# Bootstrap yay if not present
-if ! command -v yay &>/dev/null; then
-    sudo pacman -Sy --noconfirm --needed base-devel git
-    tmpdir=$(mktemp -d)
-    git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
-    if [[ $EUID -eq 0 ]]; then
-        useradd -M -s /bin/bash _aurbuild 2>/dev/null || true
-        chown -R _aurbuild: "$tmpdir/yay"
-        echo "_aurbuild ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/_aurbuild
-        sudo -u _aurbuild bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
-        rm -f /etc/sudoers.d/_aurbuild
-        userdel _aurbuild 2>/dev/null || true
-    else
-        (cd "$tmpdir/yay" && makepkg -si --noconfirm)
-    fi
-    rm -rf "$tmpdir"
-fi
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Core packages first; cosmetic extras best-effort so a missing one can't abort.
 # php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
-yay -Syu --noconfirm --needed zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh php
-for _pkg in fastfetch lsd tty-clock cmatrix; do
-    yay -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
+sudo pacman -Syu --noconfirm --needed zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh php
+for _pkg in fastfetch lsd cmatrix; do
+    sudo pacman -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
 done
+if [[ -e "$HOME/.zshrc" || -L "$HOME/.zshrc" ]]; then
+    cp -a "$HOME/.zshrc" "$HOME/.zshrc.vulnbox-backup.$(date +%Y%m%d%H%M%S)"
+fi
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 sudo chsh -s "$(which zsh)" "$USER"
+install -m 644 "$DIR/zshconfig_arch.conf" "$HOME/.zshrc"
+bash "$DIR/../install_bash_config.sh" "$DIR/bashconfig_arch.conf"
 exec zsh

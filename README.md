@@ -1,228 +1,404 @@
-# 🚀 Vulnbox-AutoConfig
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Purpose: Attack/Defense CTF remote deployment toolkit, operator shell environment, and ExploitFarm exploit arsenal. -->
 
-A toolkit for **Attack/Defense CTFs**, built around the two things you always need
-to do fast under pressure:
+# Vulnbox-AutoConfig
 
-1. **🛠 Vulnbox setup** — turn a fresh remote shell into a fully configured
-   operator environment (zsh, Oh-My-Zsh, aliases, offensive tooling) with a single
-   command, over SSH.
-2. **💉 Exploit arsenal** — drop-in, service-agnostic exploits that plug straight
-   into [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and fire at
-   every team, every tick.
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fctterrlt%2FVulnbox-autoconfig%2Fdev%2FVERSION.json&query=%24.version&label=version&style=flat-square&color=blue)](VERSION.json)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue?style=flat-square)](LICENSE)
+[![CI](https://github.com/ctterrlt/Vulnbox-autoconfig/actions/workflows/ci.yaml/badge.svg)](https://github.com/ctterrlt/Vulnbox-autoconfig/actions/workflows/ci.yaml)
+[![Platforms](https://img.shields.io/badge/platforms-Arch%20%7C%20Debian%20%2F%20Ubuntu%20%7C%20Fedora-informational?style=flat-square)](#requirements)
+[![Shell](https://img.shields.io/badge/shell-zsh%20%7C%20oh--my--zsh-orange?style=flat-square&logo=gnu-bash&logoColor=white)](#installation)
+[![Engine](https://img.shields.io/badge/engine-ExploitFarm%20%2F%20xfarm-red?style=flat-square)](#exploit-arsenal-exploitfarm-integration)
 
----
+**Vulnbox-AutoConfig** is a deployment toolkit and exploit collection for authorized **Attack/Defense CTF competitions**. It covers two parts of that workflow:
 
-## 📂 Repository structure
-
-```text
-.
-├── auto.sh                          # entry point — git import + deps refresh + distro/tooling menu
-├── sshconf.sh                       # shared SSH setup (host reuse, scp mode, key copy)
-├── root_shell.sh                    # make root use your zsh too, so `sudo su` keeps your config
-├── deployconf.sh                    # shared local-deps + "what to deploy" prompts (sourced by every distro)
-├── selectlib.sh                     # shared confirm/add/remove selection helper
-├── gitconfig.conf                   # shared git aliases
-├── nvimconfig.lua                   # shared Neovim config (→ ~/.config/nvim/init.lua)
-├── nanorc                           # shared nano config (opt-in → ~/.nanorc)
-├── konsolerc · konsole.profile      # shared Konsole config (opt-in → ~/.config + ~/.local/share/konsole)
-├── extra_keys.pub                   # untracked template
-├── requirements.txt                 # AUTO-GENERATED union of every sub-requirements.txt
-├── scripts/gen_requirements.py      # rebuilds requirements.txt (run by the hook + auto.sh)
-├── .githooks/pre-commit             # keeps requirements.txt in sync on every commit
-│
-├── arch/  ·  debian_ubuntu/  ·  fedora/      # one folder per distribution
-│   ├── <distro>_auto.sh                 # full deploy (only the package install differs per distro)
-│   ├── zshchangeconf_<distro>.sh        # re-push the config only
-│   ├── zshconfig_<distro>.conf          # the .zshrc that gets deployed
-│   ├── zshinstall_<distro>.sh           # standalone manual installer
-│   └── README.md
-│
-└── python_exploits/                 # the exploit arsenal (ExploitFarm / xfarm)
-    ├── pwnzerotti.sh                    # stub → now integrated directly into auto.sh (menu option 4)
-    ├── crypto/                          # crypto & brute-force oracles (7 projects)
-    ├── binary/                          # pwn / memory-corruption (2 projects)
-    ├── web/                             # SQLi toolkit + weak-hash cookie forgery + IDOR
-    ├── converting/                      # offline encoding/decoding helpers
-    ├── tls/                             # defensive TLS decrypt→tap→re-encrypt bridge (runs ON the vulnbox; -d to daemonize)
-    └── examples/                        # reference templates + raw jeopardy_examples/ + attack_defense/
-```
-
-Every project folder is self-contained: `<project>.py` (exploit) ·
-`module_<project>.py` (config) · `auto_<project>.sh` (interactive setup) ·
-`requirements.txt` · a generated `.env` · and a `README.md`. The one exception is
-`tls/`, which is a long-running defensive proxy daemon rather than an xfarm
-exploit — it keeps the same config layout but runs on the vulnbox (see below).
-
-> **One requirements.txt to rule them all.** The repo-root `requirements.txt` is
-> **auto-generated** as the union of every project's own `requirements.txt`, so
-> `pip install -r requirements.txt` installs *all* exploit deps at once. You never
-> edit it by hand — add your dependency to the relevant project's `requirements.txt`
-> and it's folded in automatically: `scripts/gen_requirements.py` regenerates the
-> root file, wired to run on every commit via `.githooks/pre-commit` (and on every
-> `./auto.sh`). The PHP-based web exploits also need the system `php` CLI, which the
-> deploy/installer scripts now install alongside the rest.
+1. **🛠 Vulnbox Setup & Remote Hardening** — Transforms a fresh, minimal, or reset remote shell into a fully configured, hardened operator environment (zsh, Oh-My-Zsh, robust plugins, security aliases, modern editor setups, and root shell parity) with a single command over SSH.
+2. **💉 Exploit Arsenal & ExploitFarm Engine** — Service-agnostic, modular exploits and automated defense proxies built natively for [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and its `xfarm` client, executing against every opposing team tick by tick with automated flag extraction and submission.
 
 ---
 
-## 🛠 Part 1 — Vulnbox setup
+## Status
 
-### Highlights
+The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and Fedora, plus exploit projects that integrate with ExploitFarm. CI workflow files provide syntax, dependency-sync, and lint checks; the current state of those checks is shown by the CI badge above.
 
-- **One command:** `./auto.sh` handles any supported distro from a single menu.
-- **Zero-touch SSH:** reuse a host already in `~/.ssh/config` or set up a new
-  target, pick exactly which `id_ed25519.pub` key(s) to copy (key generated if
-  missing — **prints the .pub key** on screen), and get a `~/.ssh/config` entry
-  so you can reconnect later with just `ssh <alias>`.
-- **One source of truth:** every distro shares the same `zshconfig` and git setup —
-  import the git aliases/settings wholesale or pick them item by item.
-- **CTF-ready shell:** aliases for Docker, networking and VPNs, plus Fastfetch (or Neofetch),
-   Oh-My-Zsh, syntax highlighting and autosuggestions.
-- **Editor & git (opt-in):** prompts whether to install Neovim and deploy a shared
-  `init.lua` (sane defaults + system-clipboard keybinds) to `~/.config/nvim/`, and
-  separately whether to push the shared git aliases to the target's `~/.gitconfig` —
-  decline either to leave the box's existing setup untouched.
-- **nano & Konsole config (opt-in):** optionally drop a shared `~/.nanorc` (syntax
-   highlight, sane defaults; line numbers disabled — hit `Alt+Shift+3` to toggle)
-   and/or a Konsole config + profile
-  (`~/.config/konsolerc` + `~/.local/share/konsole/`). Konsole isn't installed —
-  the files just sit ready if it's present (vulnboxes are usually headless). The
-  konsolerc shortcuts are a static baseline; the deployed `.zshrc` also **live-syncs**
-  Konsole's `[Shortcuts]` from an `Action=Key` text file you maintain
-  (`~/Documents/konsole/shortcuts.txt`, `~/Documenti/…`, or `KONSOLE_SHORTCUTS=`),
-  re-applying it on the next shell whenever you edit it.
-- **sbin on PATH:** the deployed `.zshrc` prepends `/usr/local/sbin /usr/sbin /sbin`
-  if missing, so admin tools (`ip`, `ss`, `iptables`, …) work on minimal distros
-  like antiX that leave sbin off a normal user's PATH.
-- **Keep your config as root:** make **root** mirror your whole shell config, so
-  `sudo su` / `su` / `sudo -i` keep your prompt, aliases, plugins **and** your
-  nano/git/nvim/ssh config instead of dropping to a bare bash with defaults. Idempotent
-  and reversible — it `chsh`'s root to zsh, installs Oh-My-Zsh for root if missing,
-  **symlinks** your `~/.zshrc`/`.nanorc`/`.gitconfig`/`nvim` into `/root` (so edits stay
-  in sync), and **copies** your `~/.ssh` config + keys to `/root/.ssh` (ssh won't use a
-  config it doesn't own). Used two ways: run `./root_shell.sh` (or `./root_shell.sh <user>`
-  when you're already root) to fix a machine's local root, **and** the deploy ships it
-  to the **vulnbox** (opt-in, default yes) so the target's root gets it too — skipped
-  automatically when you deploy as root, and you're never left in a root shell.
-- **Opt-in backup:** choose whether to pull a backup, exactly which folder(s) to
-  zip — by home-relative name, `~` path, or absolute path (blank = whole home) —
-  and where to save it locally (default `$HOME`, never overwriting an older backup);
-  or skip it entirely.
+- **Unified Entry Point:** The master orchestrator [`auto.sh`](auto.sh) handles host aliasing, SSH key distribution, distro deployment, ExploitFarm tooling, and local dependency management.
+- **Automated Root Parity:** The opt-in [`root_shell.sh`](root_shell.sh) mirrors Zsh and Bash aliases and selected dotfiles into `/root`; it also copies configured SSH identity files so root can use the same SSH hosts.
+- **Dependency Automation:** Exploit requirements across all subprojects are aggregated automatically into the repo-root [`requirements.txt`](requirements.txt) via [`scripts/gen_requirements.py`](scripts/gen_requirements.py) and staged on commit via [`.githooks/pre-commit`](.githooks/pre-commit).
+- **Execution Guard:** The master [`auto.sh`](auto.sh) stops in detected containers. Direct distro scripts warn and require confirmation before proceeding.
 
-### Deploy
+---
+
+## Capabilities
+
+### Remote Provisioning & Environment Setup
+- **Zero-Touch SSH Management:** Interactive target specification or automated reuse of existing `~/.ssh/config` hosts via `ssh -G`. Automatically generates missing ed25519 keypairs, displays fingerprints, and writes persistent configuration aliases.
+- **Resilient Key Deployment:** Employs literal single-quoted in-stream key injection with remote duplicate checking. Avoids `base64` decode dependencies that fail silently on stripped systems (e.g., antiX, busybox) and bypasses OpenSSH 10.x `ssh-copy-id` standalone public key quirks.
+- **Granular Key & Alias Selection:** Sourced by [`selectlib.sh`](selectlib.sh), offering multi-select toggle, range selection, and batch confirmation for deployed public keys (`id_ed25519.pub` and optional teammate keys in the local `extra_keys.pub`, seeded empty from [`extra_keys.pub.example`](extra_keys.pub.example)) and Git aliases.
+- **Cross-Distro Packaging:** Automated package installation across **Arch Linux** (`pacman`), **Debian/Ubuntu** (`apt`), and **Fedora** (`dnf` with `--skip-unavailable`). Installs core runtimes (including `php` for web exploit helpers) plus best-effort cosmetic tools (`fastfetch`, `lsd`, `tty-clock`, `cmatrix`).
+- **Defensive & Diagnostic Aliases:** Out-of-the-box aliases for rapid triage: network listening (`ss`), sniffing (`tcpdump`), container inspection (`docker ps`, `docker compose logs`), package management (`pip`, `uv`), and security service control.
+- **Minimal Distro Support (antiX, Alpine, Minimal VMs):** The deployed `.zshrc` dynamically prepends `/usr/local/sbin`, `/usr/sbin`, and `/sbin` to `$PATH`, ensuring administrative utilities (`ip`, `ss`, `iptables`, `fdisk`) function seamlessly when sbin is excluded from default user paths.
+- **Root Shell Parity:** The opt-in target setup sets zsh as root’s login shell, provisions Oh-My-Zsh, shares Zsh and Bash aliases, and copies selected SSH identity files.
+- **Bash Alias Support:** Each distro has a Bash alias file derived from its Zsh aliases. Deployment installs it as `~/.bashrc_vulnbox` and adds a managed source block to an existing regular `~/.bashrc`.
+- **Selective Remote Backups:** Inspects the remote home directory over SSH, allows selective directory archiving (home-relative, tilde, or absolute paths), downloads `backup_from_<IP>.zip` without overwriting (adding a numeric suffix if needed), and optionally initializes local Git repositories with sane `.gitignore` rules.
+
+### Exploit Arsenal & Automation
+- **ExploitFarm Native Integration:** Standardized exploit skeleton (`HOST = get_host()`, `store = Store()`, `get_ids()`, tick loop) allowing `xfarm` to replicate attacks across all teams simultaneously without hardcoded IPs.
+- **Decoupled Target Configuration:** Every exploit isolates target specifics (ports, credentials, injection vectors, formats) in a dedicated `module_<project>.py`, configurable interactively via `auto_<project>.sh` or programmatically via `.env`.
+- **Defensive Traffic Decryption (`tls/`):** Long-running defensive TLS termination and inspection bridge that intercepts inbound HTTPS traffic to your vulnbox service, exposes plaintext streams for real-time traffic analysis, and transparently re-encrypts upstream connections.
+- **Pwnzer0tt1 Tooling Orchestrator:** Integrated management for ExploitFarm infrastructure (`exploitfarm`, `digger`, `firegex`) with branch selection (`main` vs `dev`), merge/rebase conflict handling, and non-blocking subshell builds.
+
+---
+
+## Requirements
+
+| Component | Target / Environment | Prerequisites | Privileges |
+| :--- | :--- | :--- | :--- |
+| **Deploy Orchestrator** | Local Operator Machine | Linux / macOS / BSD, Bash 4+, OpenSSH client, Python 3 | Regular user (`sudo` used on target only) |
+| **Arch Targets** | Remote Vulnbox / VM | Arch Linux, network connectivity, SSH access | Sudo / root access |
+| **Debian / Ubuntu Targets** | Remote Vulnbox / VM | Debian 10+ / Ubuntu 20.04+, SSH access | Sudo / root access |
+| **Fedora Targets** | Remote Vulnbox / VM | Fedora 38+, SSH access | Sudo / root access |
+| **Exploit Arsenal** | Operator PC / Attack Box | Python 3.10+, pip / uv, optional PHP CLI | Regular user |
+| **TLS Defense Bridge** | Remote Vulnbox | Python 3 standard library (`asyncio`, `ssl`) | Service user / root (if binding < 1024) |
+
+### Compatibility Notes
+
+- **Container Safety Guard:** The master script stops in detected container environments. Direct distro deployment scripts display a warning and ask whether to continue.
+- **SCP Protocol Compatibility:** Prompts for legacy SCP (`-O`) or modern SFTP transport. Legacy `-O` ensures seamless file transfers on remote hosts lacking SFTP subsystems.
+- **Python Package Isolation:** Exploit dependencies support both system `--break-system-packages`, user prefixes, and local virtual environments.
+
+---
+
+## Installation
+
+### 1. Master Deployment (Recommended)
+
+Execute the master deployment center from the repository root:
 
 ```bash
 chmod +x auto.sh
 ./auto.sh
 ```
 
-All prompts accept **numbers or text**: options are shown numbered
-(e.g. `1) main    2) dev`) and you can type the number, the full name, or any
-case variant — `dev`, `Dev`, `DEV`, `d`, `D` or `2` all work. Yes/no prompts
-match full words so `yes`/`Yes`/`YES` / `no`/`No`/`NO` all work.
+The orchestrator guides you through:
+1. Importing or refreshing Git configuration and aliases into your local `~/.gitconfig`.
+2. Selecting target distribution (**Arch**, **Debian/Ubuntu**, **Fedora**) or installing/updating **ExploitFarm tooling**.
+3. Configuring SSH connectivity, host aliases, and public key deployment.
+4. Selecting payloads to deploy (Neovim, Git aliases, nano, Konsole, TLS bridge, root shell setup, dev repository clone).
+5. Executing remote provisioning and package installation, optionally pulling a selected backup, and printing a deployment summary. Connect to the target separately with its configured SSH alias.
 
-`auto.sh` first offers to import/refresh the shared git aliases into *your own*
-`~/.gitconfig` (all at once via `include.path`, or item-by-item), then shows the menu.
-Besides the three distros it also has an **"Install/update ExploitFarm tooling"** entry
-with the logic integrated directly into the menu (see Part 2). Picking a distro runs
-that folder's deploy, which walks you through, in order:
+### 2. Standalone Per-Distro Deployment
 
-1. **SSH target** — reuse a host already in `~/.ssh/config` or enter a new IP / user / port (blank = 22) / alias.
-2. **scp protocol** — legacy `-O` (default, most compatible) or modern SFTP.
-3. **Keys** — pick which `id_ed25519.pub` key(s) to copy (your own login key is pre-selected); type `all` to toggle all, `a all`/`r all` to add/remove all, `a 3` to add a specific item, `r 2` to remove one, Enter to confirm. Then, if a gitignored `extra_keys.pub` exists at the repo root, optionally copy some or all of those extra keys too (same picker).
-4. **Local Python deps** (`y/N`) — optionally `pip install` the aggregated root `requirements.txt` on **this** machine (your operator PC, where the xfarm exploits run — *not* the vulnbox).
-5. **Neovim**, **git aliases**, **TLS bridge**, **nano config**, **Konsole config**, **target root shell** (default yes — give the box's root your zsh too), **dev checkout**, and **backup** — each opt-in (`y/N`). The TLS bridge ships the whole `python_exploits/tls` folder to `~/tls_bridge` on the target, where it's meant to run. The dev checkout, once setup finishes, clones this toolkit's own `dev` branch onto the target into `~/<repo>` (HTTPS URL derived from your `origin`, so the box needs no GitHub key); an existing checkout's remote origin is **updated** if the protocol differs from the deployed URL.
+To bypass the master menu and deploy directly to a specific target distribution:
 
-Steps 4–5 (and the backup prompts) live in the shared **`deployconf.sh`**, sourced by
-all three distro scripts so they stay identical — only the package install itself is
-per-distro. It then installs zsh + tooling (including **`php`** for the PHP-based web
-exploits), sets zsh as the shell, applies the config, optionally pulls the backup
-(saved as `backup_from_<IP>.zip`, never overwriting an existing one), prints a
-**deployment summary** with the remote host's public keys (from `ssh-keyscan`), features deployed, and a checklist,
-and drops you into a live session (explicitly sourcing `~/.zshrc` first so all
-changes are active). Full per-prompt detail lives in each distro's README.
+```bash
+# Arch Linux
+cd arch && ./arch_auto.sh
 
-> The remote setup runs `sudo` on the **target**, so any password it asks for is
-> the **vulnbox's**, not your local machine's — the script says so on screen.
+# Debian / Ubuntu
+cd debian_ubuntu && ./debian_ubuntu_auto.sh
 
-> Already have your key on the target? Skip key generation and copy with
-> `SKIP_SSH=1 ./auto.sh` — the other prompts still run, they're needed for the
-> rest of the deploy.
+# Fedora
+cd fedora && ./fedora_auto.sh
+```
 
-### Maintain
+> [!TIP]
+> If your SSH public key is already present in the target's `authorized_keys`, set `SKIP_SSH=1` to skip key generation and copying:
+> ```bash
+> SKIP_SSH=1 ./auto.sh
+> ```
 
-| To change… | Edit… |
-|---|---|
-| Shell aliases, themes, plugins | `<distro>/zshconfig_<distro>.conf` |
-| Neovim config (`~/.config/nvim/init.lua`) | `nvimconfig.lua` (shared by all distros) |
-| Git aliases | `gitconfig.conf` |
-| nano config (`~/.nanorc`) | `nanorc` (shared by all distros) |
-| Konsole config (`~/.config/konsolerc` + profile) | `konsolerc` / `konsole.profile` (shared by all distros) |
-| SSH setup (host reuse, key copy, scp mode) | `sshconf.sh` (shared by all distros) |
-| Deploy prompts (local deps, nvim/git/tls/nano/konsole/dev, backup); `print_summary` shows remote host keys via `ssh-keyscan` (comment lines filtered out) | `deployconf.sh` (shared by all distros) |
-| Selection prompts (keys, git items — bare `all` toggles, `a all`/`r all` adds/removes all, bare `a`/`r` = `a all`/`r all`) | `selectlib.sh` (shared by all distros) |
-| Aggregated Python deps | a project's own `requirements.txt` — the root one is auto-generated, never edit it |
+### 3. Re-Pushing Configuration Only
 
-Configuration is decoupled from deploy logic, so the next `./auto.sh` simply
-re-pushes your edits. Per-distro details live in each distribution's README.
+If you have modified shell aliases, themes, or environment variables and only want to refresh the configuration on a running box without reinstalling packages:
 
----
+```bash
+# Arch Linux
+./arch/zshchangeconf_arch.sh
 
-## 💉 Part 2 — Exploit arsenal
+# Debian / Ubuntu
+./debian_ubuntu/zshchangeconf_debian_ubuntu.sh
 
-Every exploit here runs on [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm)
-and its `xfarm` client by [**Pwnzer0tt1**](https://github.com/Pwnzer0tt1), which
-handle target dispatching, flag extraction and submission. The exploits focus only
-on the attack: they share a fixed skeleton (`get_host()`, `Store()`, `get_ids()`,
-the per-tick loop), so xfarm can replicate them across every team automatically and
-the target IP is injected at runtime — never hardcoded.
+# Fedora
+./fedora/zshchangeconf_fedora.sh
+```
 
-Each exploit reads every target-specific value (host port, prompts, addresses,
-alphabets, injection style…) from a small config module — editable by hand or
-through an interactive `auto_*.sh` — so the same code retargets to any team's
-service in seconds. Start with
-[`python_exploits/README.md`](python_exploits/README.md) for the ExploitFarm
-server setup and the shared project pattern.
+### 4. Standalone Host Installation (Local / Manual)
 
-To set up the ExploitFarm stack itself — the **exploitfarm** server plus **digger**
-and **firegex** — use the `./auto.sh` menu's *"Install/update ExploitFarm tooling"*
-entry (the logic is inline in `auto.sh`, no separate script needed). It installs
-each tool (clone if absent, `git pull` if already present), lets you pick
-**`main`** (stable) or **`dev`** (latest) per repo (prompts only if `dev` exists on
-the remote), and is built to **never fail mid-run** (on any git snag it
-hard-syncs to `origin/<branch>`). Cloning/pulling recompiles from source — **digger** is
-large and slow, so it only builds when you confirm.
+To configure the current host directly without SSH:
 
-| Category | Projects |
-|---|---|
-| [`crypto/`](python_exploits/crypto) | AES-ECB oracle · RSA blinding oracle · DES login brute · OR-flag rebuild · score oracle · timing attack |
-| [`binary/`](python_exploits/binary) | canary leak → ret2win · ROP → `execve` (32/64-bit) |
-| [`web/`](python_exploits/web) | boolean-blind SQLi toolkit (explore schema · dump column · both, with configurable injection + `plain`/`url`/`hex`/`base64`/`double_url` encoding) · weak-hash session-cookie forgery (PHP `crypt()` helper) · same forgery vs a dated invites API · IDOR form-answers read |
-| [`converting/`](python_exploits/converting) | offline url/hex/base64 helpers for crafting firewall regex |
-| [`tls/`](python_exploits/tls) | **defensive** TLS decrypt → plaintext tap → re-encrypt bridge — read your own service's encrypted traffic (runs on the vulnbox, not an exploit; `-d`/`--daemon` to detach) |
+```bash
+./arch/zshinstall_arch.sh             # On Arch
+./debian_ubuntu/zshinstall_debian_ubuntu.sh # On Debian/Ubuntu
+./fedora/zshinstall_fedora.sh         # On Fedora
+```
 
 ---
 
-## ⚠️ Safety & where things run
+## Usage
 
-Three different places — don't mix them up:
+When launching `./auto.sh`, the interactive deployment pipeline executes the following stages in sequence:
 
-- **Deploy scripts (`auto.sh`, `sshconf.sh`, distro folders):** run from **your local
-  PC**, never on the target. They refuse to run inside a container or from the wrong
-  directory — heed the **DANGER** prompts if they appear.
-- **Exploit arsenal (xfarm projects):** run on the **machine hosting ExploitFarm —
-  your operator PC or attack server, _not_ the vulnbox**. xfarm fans every exploit
-  out across all teams each tick; that load on a vulnbox is heavy enough that you'd
-  effectively DoS your own box, on top of leaking your attacks to whoever owns it.
-- **`tls/` bridge:** the one piece that **runs on the vulnbox**. It sits in front of
-  one of your own services, terminates its TLS locally, and exposes the plaintext so
-  you can inspect it — so it has to live where the service does.
+```mermaid
+flowchart TD
+    A["./auto.sh Entry Point"] --> B["Git Config & Aliases Setup"]
+    B --> C["ExploitFarm Tooling or Distro Selection"]
+    C --> D["SSH Target Selection (sshconf.sh)"]
+    D --> E["Key Selection & Injection (selectlib.sh)"]
+    E --> F["Payload Options Selection (deployconf.sh)"]
+    F --> G["Remote Setup & Package Provisioning"]
+    G --> H["Selective Remote Backup Pull"]
+    H --> I["Deployment Summary"]
+```
+
+1. **Git Configuration Setup:** Prompts whether to import the shared aliases (`gitconfig.conf`) into your local `~/.gitconfig` (all at once via `include.path` or item-by-item via `selectlib.sh`).
+2. **Git Clone Protocol:** Sets preference for `https` or `ssh` (git@) when cloning tooling or dev repositories.
+3. **SSH Target Configuration (`sshconf.sh`):**
+   - Offers to reuse an existing host from `~/.ssh/config` (resolved via `ssh -G` to prefill IP, user, and port).
+   - Alternatively, prompts for target IP, username, port (default: 22), and a custom host alias, creating an entry in `~/.ssh/config`.
+4. **Transport Mode:** Chooses between legacy SCP (`-O`, default) and modern SFTP.
+5. **Key Deployment:** Interactive selector for `id_ed25519.pub` and optional team keys from the local, gitignored `extra_keys.pub` (created empty from `extra_keys.pub.example` on first run; add intended public keys locally). Selected keys are added to `~/.ssh/authorized_keys` with SSH directory and file permissions set to `0700` and `0600`.
+6. **Payload Options (`deployconf.sh`):**
+   - **Local Python deps:** Option to install root `requirements.txt` on the operator PC.
+   - **Neovim (`nvimconfig.lua`):** Provisions `~/.config/nvim/init.lua` and ensures `neovim` is installed.
+   - **Git Aliases (`gitconfig.conf`):** Provisions `~/.gitconfig_vulnbox` on the target and links it via `include.path`.
+   - **TLS Bridge:** Ships `python_exploits/tls` to `~/tls_bridge` on the target.
+   - **nano Config (`nanorc`):** Drops `~/.nanorc` with syntax highlighting and sane indentation.
+   - **Konsole Config (`konsolerc` + profile):** Provisions GUI terminal settings with live shortcut sync.
+   - **SSH Hardening (`sshd_00-custom-ssh.conf`):** Validates and installs `/etc/ssh/sshd_config.d/00-custom-ssh.conf`, retains the active connection port alongside 22222, and disables password and root login. Opt in only after confirming key-based access.
+   - **nftables Firewall (`nftables.conf`):** Adds a dedicated table to the config loaded by the target’s nftables service (`/etc/nftables.conf` on Arch and Debian/Ubuntu; `/etc/sysconfig/nftables.conf` on Fedora). It uses default input drop and VPN interface allowlisting (`wt0`, `tailscale0`, `100.64.0.0/10`), so it can block this connection and other inbound services.
+   - **Fail2ban (`fail2ban_jail.local`):** Validates and installs `/etc/fail2ban/jail.local` using the systemd backend, protects SSH on port 22222 plus the active target port, and sets a one-hour ban time.
+   - **sysctl Hardening (`sysctl_90-no-ping.conf`):** Drops `/etc/sysctl.d/90-no-ping.conf` (`net.ipv4.icmp_echo_ignore_all = 1`) to suppress ping responses.
+   - **Target Root Shell (`root_shell.sh`):** Configures `/root` to mirror user Zsh, Bash aliases, selected dotfiles, and SSH identities (default: yes).
+   - **Dev Repo Clone:** Clones this toolkit directly onto the vulnbox via HTTPS for on-box debugging.
+7. **Remote Setup Execution:** Ships packages and payload scripts to `/tmp`, establishes a pseudo-TTY SSH session, installs packages with `pacman`, `apt`, or `dnf`, and applies selected configs.
+8. **Remote Backup & Recovery:** Prompts whether to pull a backup, lists the remote home directory (`lsd` or `ls -lah`), prompts for specific directories, downloads to `<dest>/backup_from_<IP>.zip` without overwriting an existing file, and optionally extracts and initializes local Git tracking.
+9. **Deployment Summary:** Prints the target, enabled features, and a next-steps checklist. The deploy script exits after the summary; connect separately with `ssh <host-alias>`.
 
 ---
 
-## 🙏 Credits
+## Architecture
 
-[**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and **xfarm**, by
-[**Pwnzer0tt1**](https://github.com/Pwnzer0tt1) — the engine the entire exploits are built for.
+```text
+.
+├── auto.sh                          # Master entry point: Git setup, distro menu, ExploitFarm tooling
+├── sshconf.sh                       # SSH target resolution, keygen, alias management, key injection
+├── deployconf.sh                    # Shared deployment options, backup handling, deployment summary
+├── root_shell.sh                    # Root parity orchestrator (mirrors user dotfiles and shell to /root)
+├── apply_hardening.sh                # Validates, applies, and rolls back selected target hardening
+├── install_bash_config.sh            # Adds Bash aliases without replacing an existing .bashrc
+├── selectlib.sh                     # Interactive item selector (toggle, add, remove, batch confirm)
+├── gitconfig.conf                   # Shared Git aliases and configuration
+├── nvimconfig.lua                   # Shared Neovim configuration (init.lua)
+├── nanorc                           # Shared nano editor configuration
+├── konsolerc                        # Shared Konsole baseline shortcuts and UI settings
+├── konsole.profile                  # Shared Konsole profile configuration
+├── sshd_00-custom-ssh.conf          # Hardened OpenSSH daemon drop-in config (port 22222, key-only)
+├── nftables.conf                    # Stateful firewall ruleset (VPN interface & subnet allowlist)
+├── fail2ban_jail.local              # Fail2ban jail configuration (systemd backend, port 22222)
+├── sysctl_90-no-ping.conf           # Kernel sysctl hardening (disables ICMP echo response)
+├── extra_keys.pub.example           # Empty, comment-only template for local teammate public keys
+├── VERSION.json                     # Stable release target (1.0.0), source for the README version badge
+├── CHANGELOG.md                     # Version history and unreleased changes
+├── requirements.txt                 # Auto-aggregated union of all exploit dependencies
+│
+├── scripts/
+│   └── gen_requirements.py         # Aggregates subproject requirements.txt into root
+├── .githooks/
+│   └── pre-commit                   # Git hook keeping root requirements.txt in sync
+├── .github/workflows/
+│   ├── ci.yaml                      # Syntax, dependency-sync, and lint jobs
+│   └── release.yaml                 # Tag-based archive and GitHub Release workflow
+│
+├── arch/                            # Arch Linux deployment suite
+│   ├── arch_auto.sh                 # Full remote automated deploy
+│   ├── zshconfig_arch.conf          # Arch-specific zsh configuration
+│   ├── bashconfig_arch.conf         # Arch-specific Bash aliases derived from Zsh
+│   ├── zshchangeconf_arch.sh        # Configuration re-push script
+│   ├── zshinstall_arch.sh           # Local standalone installer
+│   └── README.md                    # Arch-specific documentation
+│
+├── debian_ubuntu/                   # Debian & Ubuntu deployment suite
+│   ├── debian_ubuntu_auto.sh        # Full remote automated deploy
+│   ├── zshconfig_debian_ubuntu.conf # Debian/Ubuntu-specific zsh configuration
+│   ├── bashconfig_debian_ubuntu.conf # Debian/Ubuntu Bash aliases derived from Zsh
+│   ├── zshchangeconf_debian_ubuntu.sh # Configuration re-push script
+│   ├── zshinstall_debian_ubuntu.sh  # Local standalone installer
+│   └── README.md                    # Debian/Ubuntu-specific documentation
+│
+├── fedora/                          # Fedora deployment suite
+│   ├── fedora_auto.sh               # Full remote automated deploy
+│   ├── zshconfig_fedora.conf        # Fedora-specific zsh configuration
+│   ├── bashconfig_fedora.conf        # Fedora Bash aliases derived from Zsh
+│   ├── zshchangeconf_fedora.sh      # Configuration re-push script
+│   ├── zshinstall_fedora.sh         # Local standalone installer
+│   └── README.md                    # Fedora-specific documentation
+│
+└── python_exploits/                 # Offensive & defensive exploit arsenal
+    ├── crypto/                      # Cryptographic oracles and brute-force projects
+    ├── binary/                      # Binary exploitation, memory corruption, and ROP
+    ├── web/                         # SQL injection toolkit, session forgery, and IDOR
+    ├── converting/                  # Encoding/decoding utilities and pcap exfiltration
+    ├── tls/                         # Defensive TLS decryption & interception proxy
+    ├── examples/                    # Challenge references and templates
+    └── README.md                    # ExploitFarm integration documentation
+```
 
-Happy hacking! 🛡✨
+---
 
+## Configuration Management & Maintenance
+
+| Component | Target Location | Repository Source | Behavior |
+| :--- | :--- | :--- | :--- |
+| **Shell Configuration** | `~/.zshrc` | `<distro>/zshconfig_<distro>.conf` | Sourced at login, provides plugins, aliases, prompts |
+| **Bash Aliases** | `~/.bashrc_vulnbox`, sourced from `~/.bashrc` | `<distro>/bashconfig_<distro>.conf` and `install_bash_config.sh` | Adds a managed block without replacing an existing regular `.bashrc` |
+| **Neovim Configuration** | `~/.config/nvim/init.lua` | `nvimconfig.lua` | Sane defaults, clipboard bindings, line numbering |
+| **Git Aliases** | `~/.gitconfig_vulnbox` | `gitconfig.conf` | Linked via `include.path` in `~/.gitconfig` |
+| **nano Editor** | `~/.nanorc` | `nanorc` | Tab-to-space, syntax highlighting, constant cursor show |
+| **Konsole Terminal** | `~/.config/konsolerc` | `konsolerc` | Baseline shortcuts; auto-synced via `.zshrc` hook |
+| **Konsole Profile** | `~/.local/share/konsole/*.profile` | `konsole.profile` | Color schemes, fonts, default shell profile |
+| **SSH Daemon Hardening** | `/etc/ssh/sshd_config.d/00-custom-ssh.conf` | `sshd_00-custom-ssh.conf` via `apply_hardening.sh` | Default port 22222 plus the active deployment port, key-only authentication, root login disabled |
+| **nftables Firewall** | `/etc/nftables.conf` or `/etc/sysconfig/nftables.conf` | `nftables.conf` via `apply_hardening.sh` | Dedicated inbound drop policy and VPN allowlist; managed rules are merged with the existing service config |
+| **Fail2ban Jail** | `/etc/fail2ban/jail.local` | `fail2ban_jail.local` via `apply_hardening.sh` | Systemd backend, brute-force jail for SSH on port 22222 and the active deployment port |
+| **Kernel ICMP Suppression**| `/etc/sysctl.d/90-no-ping.conf` | `sysctl_90-no-ping.conf` | Drops ICMP ping echo requests (`icmp_echo_ignore_all = 1`) |
+| **SSH Target Setup** | `~/.ssh/config` | Generated by `sshconf.sh` | Host aliases, ports, keys, user mapping |
+| **Root Shell Mirror** | `/root/.*` | Applied by `root_shell.sh` | Shares Zsh/Bash aliases, symlinks selected dotfiles, copies SSH identities |
+| **Exploit Dependencies**| Local / Virtualenv | Subproject `requirements.txt` | Aggregated automatically to root `requirements.txt` |
+
+---
+
+## Exploit Arsenal (ExploitFarm Integration)
+
+Every exploit located under [`python_exploits/`](python_exploits/) adheres to the standard [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) architecture. Exploits decouple attack logic from target infrastructure: the framework dynamically handles target IP dispatching, flag format extraction, and gameserver submissions.
+
+```text
+<project_folder>/
+├── <project>.py         # Exploit logic (get_host(), Store(), get_ids(), tick loop)
+├── module_<project>.py  # Configuration module: resolve("KEY", "default")
+├── auto_<project>.sh    # Interactive CLI configurator (updates defaults in module)
+├── requirements.txt     # Python dependencies specific to this exploit
+├── .env                 # Local overrides (gitignored, generated by auto_*.sh)
+└── README.md            # Challenge description and exploit documentation
+```
+
+### Exploit Catalog Summary
+
+| Category | Projects | Attack Vectors & Technologies |
+| :--- | :--- | :--- |
+| **Crypto** | `aes_ecb_oracle`<br>`rsa_blinding_oracle`<br>`des_login_brute`<br>`bruteforce_or_flag`<br>`bruteforce_score_oracle`<br>`timing_attack`<br>`time_bruteforce`<br>`predictable_iv`<br>`rsa_related_primes_einv`<br>`rsa_related_primes_8x_even_e` | AES byte-at-a-time decryption, RSA decryption oracle with blinding, DES password cracking, bitwise OR-flag recovery, side-channel response timing, CRT prime factorization. |
+| **Binary / PWN** | `canary_ret2win`<br>`rop_execve`<br>`skypedia_session_confuse` | Stack canary leak and return-to-win exploitation, 32/64-bit Return-Oriented Programming (ROP) to `execve`, memory state confusion. |
+| **Web** | `sql/explore_database`<br>`sql/dump_column`<br>`sql/explore_and_dump`<br>`ccalendar_cookie_forge`<br>`ccalendar_weak_hash`<br>`ccforms_idor`<br>`skypedia_jwt_forge` | Boolean-blind SQL injection framework with multi-encoding (URL, hex, base64, double-url), PHP weak hash session cookie forgery, account enumeration, IDOR data dumping. |
+| **Converting** | `noobexfil_solve`<br>Encoding helpers | Offline URL, Hex, and Base64 format converters for firewall regex rules; tshark-based FTP/pcap stream extraction. |
+| **Defensive TLS** | `tls/` | Defensive TLS decrypt $\rightarrow$ plaintext tap $\rightarrow$ re-encrypt proxy daemon. Runs on the vulnbox to inspect incoming encrypted competition traffic. |
+
+---
+
+## Safety & Environment Boundaries
+
+The toolkit operates across three strictly segregated network and execution tiers:
+
+```mermaid
+graph LR
+    subgraph LocalOperator["Operator PC (Your Machine)"]
+        auto["./auto.sh"]
+        deps["Exploit Dependencies"]
+        sshconf["SSH Host & Keys"]
+    end
+
+    subgraph AttackServer["Attack Server / Farm Host"]
+        xfarm["ExploitFarm / xfarm"]
+        exploits["python_exploits/*.py"]
+    end
+
+    subgraph Vulnbox["Target Vulnbox (Remote)"]
+        zsh["zsh / Oh-My-Zsh"]
+        root["Root Parity Shell"]
+        tlsbridge["tls_bridge Proxy"]
+    end
+
+    LocalOperator -- SSH Deploy --> Vulnbox
+    LocalOperator -- Git Push --> AttackServer
+    AttackServer -- Attack Loop (Every Tick) --> Vulnbox
+```
+
+- **Remote Deployment Scripts (`auto.sh`, `*_auto.sh`):** Run these from the operator workstation. The master script stops in detected containers; direct distro deployments warn and ask for confirmation. The `zshinstall_*.sh` scripts are the separate local installers and run on the host they configure.
+- **Exploit Arsenal (`python_exploits/`):** Must be executed on the machine hosting ExploitFarm (your operator workstation or dedicated attack VM), **never on the target vulnbox**. Running exploits on a vulnbox will saturate resources and leak offensive payloads to competitors.
+- **TLS Interception Bridge (`python_exploits/tls`):** The **only** component intended to execute on the remote vulnbox. It sits in front of your service, terminates TLS locally, logs plaintext requests, and re-encrypts traffic to the backend service.
+
+---
+
+## Development
+
+CI is defined in [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml). It checks Bash syntax, runs ShellCheck on deployment scripts, compiles Python sources, verifies the generated dependency manifest, and runs Ruff on `scripts/`.
+
+Run the corresponding local checks from the repository root:
+
+```bash
+find . -name '*.sh' -not -path '*/.git/*' -exec bash -n {} +
+python3 -m compileall -q scripts python_exploits
+python3 scripts/gen_requirements.py
+```
+
+The release workflow packages the repository as `.tar.gz` and `.zip` files and creates SHA-256 checksums. A release tag must exactly match the stable version in [`VERSION.json`](VERSION.json) (currently `v1.0.0`); pre-release tags are rejected. Manual workflow runs build artifacts without publishing a release.
+
+---
+
+## Privacy & Data Handling
+
+- Remote deployment and file transfer use SSH/SCP. When a new host is configured, its address, port, username, and alias are stored in the operator’s `~/.ssh/config`.
+- Selected public keys are added to the target user’s `~/.ssh/authorized_keys`.
+- Backup transfer is opt-in and copies the selected remote paths to a local ZIP archive.
+- Root parity is opt-in. It copies supported SSH identity files from the target user’s home directory into `/root/.ssh` so root can use the configured hosts.
+- Exploit-specific `.env` files are local overrides and are excluded from Git by the ignore rules.
+
+---
+
+## Responsible Use
+
+This toolkit is designed exclusively for educational purposes, authorized Attack/Defense CTF competitions, and legitimate cybersecurity research.
+
+- Do not deploy or execute these tools against systems, networks, or infrastructure without explicit, written authorization from the owners.
+- Compliance with competition rules, service-level agreements (SLAs), and applicable laws is strictly the responsibility of the operator.
+- The authors and contributors assume no liability for misuse, damages, or unintended consequences resulting from the use of this software.
+
+---
+
+## Roadmap
+
+- Add a separate prompt for the hardened SSH listen port, distinct from the port used for the initial deployment connection.
+- Allow operators to select or detect the VPN interface names used by the nftables policy.
+- Check Fail2ban backend and log availability across minimal systemd and syslog-based targets.
+- Add a repeatable local deployment smoke-test target that does not require a live competition machine.
+- Consider a minimal Bash-only setup for targets where installing Zsh is not desired.
+
+---
+
+## Contributing
+
+Contributions, bug reports, and pull requests are welcome.
+
+1. Ensure all shell scripts maintain `set -euo pipefail` where applicable and pass syntax checks with `shellcheck`.
+2. Keep `resolve("KEY", "default")` calls on a single line in `module_*.py` files to preserve regex compatibility with `auto_*.sh` configurators.
+3. When adding new Python exploit dependencies, place them in the subproject's `requirements.txt`. The root `requirements.txt` will be re-aggregated automatically upon commit.
+4. Maintain distro-parity across `arch/`, `debian_ubuntu/`, and `fedora/` configuration templates.
+
+---
+
+## Security
+
+If you discover a security vulnerability or credential leak within this repository:
+- Do not create a public GitHub issue.
+- Please report the issue privately to the maintainers with reproducible steps and proof-of-concept details.
+
+---
+
+## Credits & Acknowledgments
+
+- [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and `xfarm` by [**Pwnzer0tt1**](https://github.com/Pwnzer0tt1) — The orchestration engine powering the exploit arsenal.
+- [**Oh-My-Zsh**](https://github.com/ohmyzsh/ohmyzsh) — Community-driven framework for Zsh.
+- [**zsh-syntax-highlighting**](https://github.com/zsh-users/zsh-syntax-highlighting) and [**zsh-autosuggestions**](https://github.com/zsh-users/zsh-autosuggestions) — Essential shell usability enhancements.
+
+---
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`). See [LICENSE](LICENSE) for the full text.

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Shared selection helpers — sourced by auto.sh and sshconf.sh.
 # Gives every "pick from a list" prompt the same review step: show what's
 # currently selected, then confirm / add / remove before continuing.

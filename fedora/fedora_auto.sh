@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # VULNBOX AUTO-DEPLOYMENT SCRIPT (FEDORA)
 set -euo pipefail
 
@@ -43,9 +44,18 @@ sudo -v
 # php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
 sudo dnf install -y zip zsh nano git curl openssh-server php \
     zsh-syntax-highlighting zsh-autosuggestions
+if [[ "${DEPLOY_NFTABLES:-n}" == [yY]* ]]; then
+    sudo dnf install -y nftables
+fi
+if [[ "${DEPLOY_FAIL2BAN:-n}" == [yY]* ]]; then
+    sudo dnf install -y fail2ban
+fi
 sudo dnf install -y --skip-unavailable fastfetch lsd tty-clock cmatrix
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
+if [[ -e "$HOME/.zshrc" || -L "$HOME/.zshrc" ]]; then
+    cp -a "$HOME/.zshrc" "$HOME/.zshrc.vulnbox-backup.$(date +%Y%m%d%H%M%S)"
+fi
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
@@ -55,6 +65,8 @@ sudo chsh -s "$(which zsh)" "$USER"
 
 # Apply config
 mv /tmp/zshconfig_fedora.conf ~/.zshrc
+bash /tmp/install_bash_config.sh /tmp/bashconfig_fedora.conf
+rm -f /tmp/install_bash_config.sh
 
 # Apply Neovim config (only if it was transferred — user opted in)
 if [ -f /tmp/nvimconfig.lua ]; then
@@ -118,6 +130,12 @@ if [ -f /tmp/root_shell.sh ]; then
         echo "Deployed as root — root already configured; skipping root_shell.sh."
     fi
     rm -f /tmp/root_shell.sh
+fi
+
+# Apply any selected hardening configs through one shared validator/rollback helper.
+if [ -f /tmp/apply_hardening.sh ]; then
+    bash /tmp/apply_hardening.sh
+    rm -f /tmp/apply_hardening.sh
 fi
 
 # Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
@@ -189,6 +207,8 @@ PAYLOAD_EOF
 
 # ── 5. TRANSFER & EXECUTE ─────────────────────────────────────────────────────
 scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/zshconfig_fedora.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_fedora.conf"
+scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/bashconfig_fedora.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/bashconfig_fedora.conf"
+scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../install_bash_config.sh" "${TARGET_USER}@${TARGET_IP}:/tmp/install_bash_config.sh"
 if [[ $DEPLOY_NVIM == [yY]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nvimconfig.lua" "${TARGET_USER}@${TARGET_IP}:/tmp/nvimconfig.lua"
 else
@@ -216,6 +236,31 @@ if [[ "${DEPLOY_ROOTSHELL:-Y}" != [nN]* ]]; then
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/root_shell.sh"
 fi
+if [[ $DEPLOY_SSHD == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../sshd_00-custom-ssh.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/sshd_00-custom-ssh.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/sshd_00-custom-ssh.conf"
+fi
+if [[ $DEPLOY_NFTABLES == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nftables.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/nftables.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nftables.conf"
+fi
+if [[ $DEPLOY_FAIL2BAN == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../fail2ban_jail.local" "${TARGET_USER}@${TARGET_IP}:/tmp/fail2ban_jail.local"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/fail2ban_jail.local"
+fi
+if [[ $DEPLOY_SYSCTL == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../sysctl_90-no-ping.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/sysctl_90-no-ping.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/sysctl_90-no-ping.conf"
+fi
+if [[ $DEPLOY_SSHD == [yY]* || $DEPLOY_NFTABLES == [yY]* || $DEPLOY_FAIL2BAN == [yY]* || $DEPLOY_SYSCTL == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../apply_hardening.sh" "${TARGET_USER}@${TARGET_IP}:/tmp/apply_hardening.sh"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/apply_hardening.sh"
+fi
 # Always clear any stale bridge from a previous run; recopy the whole folder on opt-in.
 ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -rf /tmp/tls_bridge"
 if [[ $DEPLOY_TLS == [yY]* ]]; then
@@ -226,7 +271,8 @@ scp $SCP_OPTS -P "$TARGET_PORT" /tmp/vulnbox_payload.sh      "${TARGET_USER}@${T
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DO_GIT_INIT_REMOTE='$DO_GIT_INIT_REMOTE' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
+REMOTE_SETUP_ENV="TARGET_PORT=$(remote_shell_quote "$TARGET_PORT") DO_BACKUP=$(remote_shell_quote "$DO_BACKUP") BACKUP_PATHS=$(remote_shell_quote "$BACKUP_PATHS") DO_GIT_INIT_REMOTE=$(remote_shell_quote "$DO_GIT_INIT_REMOTE") DEV_REPO_URL=$(remote_shell_quote "$DEV_REPO_URL") DEV_REPO_NAME=$(remote_shell_quote "$DEV_REPO_NAME") DEV_REPO_BRANCH=$(remote_shell_quote "$DEV_REPO_BRANCH") FETCH_CMD=$(remote_shell_quote "$FETCH_CMD") DEPLOY_SSHD=$(remote_shell_quote "$DEPLOY_SSHD") DEPLOY_NFTABLES=$(remote_shell_quote "$DEPLOY_NFTABLES") DEPLOY_FAIL2BAN=$(remote_shell_quote "$DEPLOY_FAIL2BAN") DEPLOY_SYSCTL=$(remote_shell_quote "$DEPLOY_SYSCTL")"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "$REMOTE_SETUP_ENV bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 BACKUP_FILE=""
 if [[ $DO_BACKUP == y ]]; then

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # auto_deploy.sh
 set -euo pipefail
 
@@ -26,14 +27,6 @@ if git -C "$SCRIPT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
     git -C "$SCRIPT_DIR" config core.hooksPath .githooks 2>/dev/null || true
 fi
 python3 "$SCRIPT_DIR/scripts/gen_requirements.py" 2>/dev/null || true
-
-# Seed the gitignored extra_keys.pub from its tracked template on first run, so the
-# file always exists locally after a clone (your keys stay out of git — only the
-# .example template is committed).
-if [ ! -f "$SCRIPT_DIR/extra_keys.pub" ] && [ -f "$SCRIPT_DIR/extra_keys.pub.example" ]; then
-    cp "$SCRIPT_DIR/extra_keys.pub.example" "$SCRIPT_DIR/extra_keys.pub"
-    echo "[OK] Created extra_keys.pub from the template — add extra public keys there (gitignored)."
-fi
 
 # Shared selection helper (review_selection: list selected → confirm/add/remove).
 . "$SCRIPT_DIR/selectlib.sh"

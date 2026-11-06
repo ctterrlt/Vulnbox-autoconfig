@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # deployconf.sh — shared local setup + "what to deploy" prompts.
 #
 # Sourced by every <distro>/<distro>_auto.sh right after sshconf.sh, so the three
@@ -7,6 +8,7 @@
 #   DIR, TARGET_IP, TARGET_USER, TARGET_PORT
 # and sets these for the payload that follows:
 #   INSTALL_REQS, DEPLOY_NVIM, DEPLOY_GIT, DEPLOY_TLS, DEPLOY_NANO, DEPLOY_KONSOLE,
+#   DEPLOY_SSHD, DEPLOY_NFTABLES, DEPLOY_FAIL2BAN, DEPLOY_SYSCTL,
 #   DEPLOY_ROOTSHELL, DEV_REPO_URL / DEV_REPO_NAME / DEV_REPO_BRANCH,
 #   DO_BACKUP, BACKUP_PATHS, BACKUP_DEST
 
@@ -46,6 +48,14 @@ read -rp "Deploy the nano config (nanorc) to the target's ~/.nanorc? (y/N) " DEP
 # terminal — usually irrelevant on a headless vulnbox, hence default no — but the
 # files are harmless if konsole isn't installed and ready if it is.
 read -rp "Deploy the Konsole config (konsolerc + profile) to the target? (y/N) " DEPLOY_KONSOLE
+
+# ── HARDENING PAYLOADS ───────────────────────────────────────────────────────
+# Opt-in defensive configs. nftables allows SSH only on the configured VPN
+# interfaces/subnet and can end this connection; require VPN access or console recovery.
+read -rp "Deploy SSH hardening config (sshd_00-custom-ssh.conf) to /etc/ssh/sshd_config.d/? (y/N) " DEPLOY_SSHD
+read -rp "Deploy restrictive nftables rules (VPN-only SSH; may block this connection) to the target's nftables service config? (y/N) " DEPLOY_NFTABLES
+read -rp "Deploy fail2ban jail config (fail2ban_jail.local) to /etc/fail2ban/jail.local? (y/N) " DEPLOY_FAIL2BAN
+read -rp "Deploy sysctl no-ping config (sysctl_90-no-ping.conf) to /etc/sysctl.d/? (y/N) " DEPLOY_SYSCTL
 
 # Also give the TARGET's root the same zsh setup, so `sudo su` / `su -` on the box
 # keep your config instead of a bare bash. Defaults to yes. Skipped automatically
@@ -164,6 +174,14 @@ if [[ $DO_BACKUP == y ]]; then
     read -rp "Git init each extracted folder locally (add .gitignore if missing)? (y/N) " DO_GIT_INIT_LOCAL
 fi
 
+# Quote values for safe use in remote POSIX-shell assignments. In particular,
+# backup paths and repository URLs must remain data when building the ssh command.
+remote_shell_quote() {
+    local value="$1"
+    value=${value//\'/\'\\\'\'}
+    printf "'%s'" "$value"
+}
+
 # ── POST-BACKUP PROCESSING (shared across all distros) ─────────────────────────
 # Called by each <distro>/<distro>_auto.sh after the backup has been pulled and
 # BACKUP_FILE is known.  Handles extraction, local git init (with .gitignore),
@@ -256,8 +274,8 @@ GITIGNORE_LOCAL
     echo -e "\n=== DEPLOYMENT WRAP-UP ==="
     echo "  What to do next on the vulnbox:"
     echo "  1. Start the tools / services you need (listeners, bridges, ...)"
-    echo "  2. Add the vulnbox GitHub API key so it can push/pull:"
-    echo "       git remote set-url origin https://<user>:<token>@github.com/..."
+    echo "  2. Authenticate GitHub with 'gh auth login' or an SSH key."
+    echo "     Avoid putting access tokens in remote URLs or shell history."
     echo "  3. Link git repos between your PC and the vulnbox"
     echo "     (set a shared remote on GitHub, or scp .git/config across)"
     echo "  4. Update .gitignore in every repo as needed"
@@ -293,6 +311,10 @@ print_summary() {
     echo "    nano:         $( [[ "${DEPLOY_NANO:-n}" == [yY]* ]] && echo "yes" || echo "no")"
     echo "    konsole:      $( [[ "${DEPLOY_KONSOLE:-n}" == [yY]* ]] && echo "yes" || echo "no")"
     echo "    tls bridge:   $( [[ "${DEPLOY_TLS:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    sshd config:  $( [[ "${DEPLOY_SSHD:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    nftables:     $( [[ "${DEPLOY_NFTABLES:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    fail2ban:     $( [[ "${DEPLOY_FAIL2BAN:-n}" == [yY]* ]] && echo "yes" || echo "no")"
+    echo "    sysctl:       $( [[ "${DEPLOY_SYSCTL:-n}" == [yY]* ]] && echo "yes" || echo "no")"
     echo ""
     if [ -n "${DEV_REPO_URL:-}" ]; then
         echo "  Dev repo clone:"
@@ -306,7 +328,7 @@ print_summary() {
     echo ""
     echo "  Next steps checklist:"
     echo "  [ ] Verify passwordless login: ssh ${TARGET_USER}@${HOST_ALIAS:-$TARGET_IP}"
-    echo "  [ ] Set up GitHub API key on vulnbox if using HTTPS clone"
+    echo "  [ ] Authenticate GitHub with gh or SSH if the target needs to push"
     echo "  [ ] Start services / listeners on vulnbox"
     echo "  [ ] Configure exploit parameters (paths, tokens, flag IDs)"
     echo "  [ ] Push/backup changes to GitHub"

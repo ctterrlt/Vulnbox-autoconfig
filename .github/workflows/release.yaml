@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Purpose: Build distribution release bundles, generate checksums, and publish GitHub Release for tags.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release Assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Tag & Extract Version
+        id: vars
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG_NAME" == refs/* ]]; then
+            TAG_NAME="manual-build"
+          else
+            VERSION="$(jq -er '.version' VERSION.json)"
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "VERSION.json must contain a stable semantic version (X.Y.Z)." >&2
+              exit 1
+            fi
+            EXPECTED_TAG="v${VERSION}"
+            if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$TAG_NAME" != "$EXPECTED_TAG" ]]; then
+              echo "Expected stable release tag ${EXPECTED_TAG}; prerelease or mismatched tags are not accepted." >&2
+              exit 1
+            fi
+          fi
+          echo "tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Package Distribution Bundles
+        run: |
+          DIST_DIR="dist"
+          mkdir -p "$DIST_DIR"
+          ARCHIVE_BASE="vulnbox-autoconfig-${RELEASE_TAG}"
+
+          # Exclude git metadata and local caches
+          tar --exclude="./.git" \
+              --exclude="./.github" \
+              --exclude="./dist" \
+              --exclude="./__pycache__" \
+              --exclude="*.pyc" \
+              --exclude="./.venv" \
+              --exclude="./venv" \
+              --exclude="./Agents.md" \
+              --exclude="*/AGENTS.md" \
+              --exclude="*/Agents.md" \
+              --exclude="*/agents.md" \
+              --exclude="./.env*" \
+              --exclude="*/.env*" \
+              --exclude="./extra_keys.pub" \
+              --exclude="*/extra_keys.pub" \
+              -czf "${DIST_DIR}/${ARCHIVE_BASE}.tar.gz" .
+
+          zip -r -q "${DIST_DIR}/${ARCHIVE_BASE}.zip" . \
+              -x "./.git/*" \
+              -x "./.github/*" \
+              -x "./dist/*" \
+              -x "*/__pycache__/*" \
+              -x "*.pyc" \
+              -x "./.venv/*" \
+              -x "./venv/*" \
+              -x "./Agents.md" \
+              -x "*/AGENTS.md" \
+              -x "*/Agents.md" \
+              -x "*/agents.md" \
+              -x "./.env*" \
+              -x "*/.env*" \
+              -x "./extra_keys.pub" \
+              -x "*/extra_keys.pub"
+
+          cd "$DIST_DIR"
+          sha256sum "${ARCHIVE_BASE}.tar.gz" "${ARCHIVE_BASE}.zip" > SHA256SUMS
+          cd ..
+        env:
+          RELEASE_TAG: ${{ steps.vars.outputs.tag }}
+
+      - name: Upload Manual Build Artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnbox-autoconfig-manual-build
+          path: dist/*
+          retention-days: 14
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

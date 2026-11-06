@@ -1,6 +1,9 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 #debian_ubuntu
 # Standalone manual install — runs ON the target box.
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # openssh-client: for SSH-ing OUT from this box (vs openssh-server in the auto deploy payload).
 # Keep package list aligned with debian_ubuntu_auto.sh payload.
 # Core packages first; cosmetic extras best-effort so a missing/dead one (neofetch
@@ -11,6 +14,11 @@ sudo apt install -y zip zsh nano git curl zsh-syntax-highlighting zsh-autosugges
 for _pkg in fastfetch lsd tty-clock cmatrix; do
     sudo apt install -y "$_pkg" || echo "  (skipped $_pkg — not in repos)"
 done
+if [[ -e "$HOME/.zshrc" || -L "$HOME/.zshrc" ]]; then
+    cp -a "$HOME/.zshrc" "$HOME/.zshrc.vulnbox-backup.$(date +%Y%m%d%H%M%S)"
+fi
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 sudo chsh -s "$(which zsh)" "$USER"
+install -m 644 "$DIR/zshconfig_debian_ubuntu.conf" "$HOME/.zshrc"
+bash "$DIR/../install_bash_config.sh" "$DIR/bashconfig_debian_ubuntu.conf"
 exec zsh

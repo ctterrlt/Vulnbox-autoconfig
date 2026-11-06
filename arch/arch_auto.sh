@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # VULNBOX AUTO-DEPLOYMENT SCRIPT (ARCH)
 set -euo pipefail
 
@@ -32,35 +33,26 @@ set -euo pipefail
 echo ">>> sudo below wants the password of $(whoami)@$(hostname) — the REMOTE vulnbox, not your local PC."
 sudo -v
 
-# Bootstrap yay if not present
-if ! command -v yay &>/dev/null; then
-    sudo pacman -Sy --noconfirm --needed base-devel git
-    tmpdir=$(mktemp -d)
-    git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
-    if [[ $EUID -eq 0 ]]; then
-        useradd -M -s /bin/bash _aurbuild 2>/dev/null || true
-        chown -R _aurbuild: "$tmpdir/yay"
-        echo "_aurbuild ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/_aurbuild
-        sudo -u _aurbuild bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
-        rm -f /etc/sudoers.d/_aurbuild
-        userdel _aurbuild 2>/dev/null || true
-    else
-        (cd "$tmpdir/yay" && makepkg -si --noconfirm)
-    fi
-    rm -rf "$tmpdir"
-fi
-
-# Install packages via yay (handles both official and AUR). Core first, then the
+# Install required packages from Arch's configured repositories. Core first, then the
 # cosmetic extras best-effort, so a package that's missing or renamed in the repos
 # can't abort the whole deploy.
 # php: runtime for the PHP-based web exploits (python_exploits/web/ccalendar_*).
-yay -Syu --noconfirm --needed \
+sudo pacman -Syu --noconfirm --needed \
     zip zsh nano git curl zsh-syntax-highlighting zsh-autosuggestions openssh php
-for _pkg in fastfetch lsd tty-clock cmatrix; do
-    yay -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
+for _pkg in fastfetch lsd cmatrix; do
+    sudo pacman -S --noconfirm --needed "$_pkg" || echo "  (skipped $_pkg — not available in repos)"
 done
+if [[ "${DEPLOY_NFTABLES:-n}" == [yY]* ]]; then
+    sudo pacman -S --noconfirm --needed nftables
+fi
+if [[ "${DEPLOY_FAIL2BAN:-n}" == [yY]* ]]; then
+    sudo pacman -S --noconfirm --needed fail2ban
+fi
 
 # Install Oh-My-Zsh (non-interactive, skip if already present)
+if [[ -e "$HOME/.zshrc" || -L "$HOME/.zshrc" ]]; then
+    cp -a "$HOME/.zshrc" "$HOME/.zshrc.vulnbox-backup.$(date +%Y%m%d%H%M%S)"
+fi
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
@@ -70,11 +62,13 @@ sudo chsh -s "$(which zsh)" "$USER"
 
 # Apply config
 mv /tmp/zshconfig_arch.conf ~/.zshrc
+bash /tmp/install_bash_config.sh /tmp/bashconfig_arch.conf
+rm -f /tmp/install_bash_config.sh
 
 # Apply Neovim config (only if it was transferred — user opted in)
 if [ -f /tmp/nvimconfig.lua ]; then
     # Install neovim only if missing or outdated (--needed skips up-to-date pkgs)
-    yay -S --noconfirm --needed neovim
+    sudo pacman -S --noconfirm --needed neovim
     mkdir -p ~/.config/nvim
     mv /tmp/nvimconfig.lua ~/.config/nvim/init.lua
 fi
@@ -133,6 +127,12 @@ if [ -f /tmp/root_shell.sh ]; then
         echo "Deployed as root — root already configured; skipping root_shell.sh."
     fi
     rm -f /tmp/root_shell.sh
+fi
+
+# Apply any selected hardening configs through one shared validator/rollback helper.
+if [ -f /tmp/apply_hardening.sh ]; then
+    bash /tmp/apply_hardening.sh
+    rm -f /tmp/apply_hardening.sh
 fi
 
 # Backup selected folders, only when requested. DO_BACKUP/BACKUP_PATHS are injected
@@ -204,6 +204,8 @@ PAYLOAD_EOF
 
 # ── 5. TRANSFER & EXECUTE ─────────────────────────────────────────────────────
 scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/zshconfig_arch.conf"  "${TARGET_USER}@${TARGET_IP}:/tmp/zshconfig_arch.conf"
+scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/bashconfig_arch.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/bashconfig_arch.conf"
+scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../install_bash_config.sh" "${TARGET_USER}@${TARGET_IP}:/tmp/install_bash_config.sh"
 if [[ $DEPLOY_NVIM == [yY]* ]]; then
     scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nvimconfig.lua" "${TARGET_USER}@${TARGET_IP}:/tmp/nvimconfig.lua"
 else
@@ -231,6 +233,31 @@ if [[ "${DEPLOY_ROOTSHELL:-Y}" != [nN]* ]]; then
 else
     ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/root_shell.sh"
 fi
+if [[ $DEPLOY_SSHD == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../sshd_00-custom-ssh.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/sshd_00-custom-ssh.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/sshd_00-custom-ssh.conf"
+fi
+if [[ $DEPLOY_NFTABLES == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../nftables.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/nftables.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/nftables.conf"
+fi
+if [[ $DEPLOY_FAIL2BAN == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../fail2ban_jail.local" "${TARGET_USER}@${TARGET_IP}:/tmp/fail2ban_jail.local"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/fail2ban_jail.local"
+fi
+if [[ $DEPLOY_SYSCTL == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../sysctl_90-no-ping.conf" "${TARGET_USER}@${TARGET_IP}:/tmp/sysctl_90-no-ping.conf"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/sysctl_90-no-ping.conf"
+fi
+if [[ $DEPLOY_SSHD == [yY]* || $DEPLOY_NFTABLES == [yY]* || $DEPLOY_FAIL2BAN == [yY]* || $DEPLOY_SYSCTL == [yY]* ]]; then
+    scp $SCP_OPTS -P "$TARGET_PORT" "$DIR/../apply_hardening.sh" "${TARGET_USER}@${TARGET_IP}:/tmp/apply_hardening.sh"
+else
+    ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -f /tmp/apply_hardening.sh"
+fi
 # Always clear any stale bridge from a previous run; recopy the whole folder on opt-in.
 ssh -p "$TARGET_PORT" "${TARGET_USER}@${TARGET_IP}" "rm -rf /tmp/tls_bridge"
 if [[ $DEPLOY_TLS == [yY]* ]]; then
@@ -241,7 +268,8 @@ scp $SCP_OPTS -P "$TARGET_PORT" /tmp/vulnbox_payload.sh     "${TARGET_USER}@${TA
 echo -e "\n=== 3. RUNNING REMOTE SETUP ==="
 echo "Note: the remote setup runs sudo on the TARGET. If asked for a password, enter the"
 echo "      password for ${TARGET_USER}@${TARGET_IP} (the vulnbox) — NOT your local machine."
-ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "DO_BACKUP='$DO_BACKUP' BACKUP_PATHS='$BACKUP_PATHS' DO_GIT_INIT_REMOTE='$DO_GIT_INIT_REMOTE' DEV_REPO_URL='$DEV_REPO_URL' DEV_REPO_NAME='$DEV_REPO_NAME' DEV_REPO_BRANCH='$DEV_REPO_BRANCH' bash /tmp/setup.sh && rm /tmp/setup.sh"
+REMOTE_SETUP_ENV="TARGET_PORT=$(remote_shell_quote "$TARGET_PORT") DO_BACKUP=$(remote_shell_quote "$DO_BACKUP") BACKUP_PATHS=$(remote_shell_quote "$BACKUP_PATHS") DO_GIT_INIT_REMOTE=$(remote_shell_quote "$DO_GIT_INIT_REMOTE") DEV_REPO_URL=$(remote_shell_quote "$DEV_REPO_URL") DEV_REPO_NAME=$(remote_shell_quote "$DEV_REPO_NAME") DEV_REPO_BRANCH=$(remote_shell_quote "$DEV_REPO_BRANCH") DEPLOY_SSHD=$(remote_shell_quote "$DEPLOY_SSHD") DEPLOY_NFTABLES=$(remote_shell_quote "$DEPLOY_NFTABLES") DEPLOY_FAIL2BAN=$(remote_shell_quote "$DEPLOY_FAIL2BAN") DEPLOY_SYSCTL=$(remote_shell_quote "$DEPLOY_SYSCTL")"
+ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "$REMOTE_SETUP_ENV bash /tmp/setup.sh && rm /tmp/setup.sh"
 
 BACKUP_FILE=""
 if [[ $DO_BACKUP == y ]]; then

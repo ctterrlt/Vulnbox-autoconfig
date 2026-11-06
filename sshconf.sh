@@ -1,10 +1,18 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Shared SSH setup — sourced by each distro's auto.sh.
 # Sets: TARGET_IP, TARGET_USER, TARGET_PORT, HOST_ALIAS
 
 # Shared selection helper (review_selection: list selected → confirm/add/remove).
 _SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_SELF_DIR/selectlib.sh"
+
+# Direct distro entry points source this file without going through auto.sh, so
+# seed the optional team-key file here where every remote deploy path converges.
+if [[ ! -f "$_SELF_DIR/extra_keys.pub" && -f "$_SELF_DIR/extra_keys.pub.example" ]]; then
+    cp "$_SELF_DIR/extra_keys.pub.example" "$_SELF_DIR/extra_keys.pub"
+    echo "[OK] Created extra_keys.pub from the template (gitignored)."
+fi
 
 # ── INPUT ─────────────────────────────────────────────────────────────────────
 echo -e "\n=== LOCAL NETWORK INTERFACES ==="
@@ -61,6 +69,12 @@ if [[ "$REUSED_HOST" != "1" ]]; then
     TARGET_PORT=${TARGET_PORT:-22}
     read -rp "Enter a name for this host in ~/.ssh/config [${TARGET_IP}]: " HOST_ALIAS
     HOST_ALIAS=${HOST_ALIAS:-$TARGET_IP}
+fi
+
+if ! [[ "$TARGET_PORT" =~ ^[0-9]{1,5}$ ]] || \
+   (( 10#$TARGET_PORT < 1 || 10#$TARGET_PORT > 65535 )); then
+    echo "[ERR] SSH port must be a number from 1 to 65535; received '${TARGET_PORT:-}'." >&2
+    exit 1
 fi
 
 # ── UPDATE LOCAL SSH CONFIG ───────────────────────────────────────────────────

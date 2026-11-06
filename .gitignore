@@ -1,13 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 **/ssh_on_rsa.py
 ! **/.gitkeep
 **/privatekey
 **/publickey
+**/extra_keys.pub
+# Local SSH credentials, trust data, and user-specific SSH settings.
+**/.ssh/**
+**/id_rsa
+**/id_dsa
+**/id_ecdsa
+**/id_ed25519
+**/id_rsa.pub
+**/id_dsa.pub
+**/id_ecdsa.pub
+**/id_ed25519.pub
+**/id_ed25519_sk
+**/id_ecdsa_sk
+**/identity
+**/known_hosts
+**/known_hosts.old
+**/authorized_keys
+# Common per-user credential stores.
+**/.netrc
+**/.git-credentials
+**/.pypirc
+**/.aws/credentials
+**/.kube/config
+**/.config/gh/hosts.yml
 **/*.key
 **/*.pem
 **/*.claude/**/*
 **/.env*
-**/CLAUDE.md
-**/Agents.md
+**/**/CLAUDE.md
+**/**/Claude.md
+**/**/claude.md
+**/**/AGENTS.md
+**/**/Agents.md
+**/**/agents.md
 **/backup_from_*.zip
 **/__pycache__/**/*
 **/*.pyc

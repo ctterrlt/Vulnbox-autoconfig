@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Purpose: CI workflow: shell validation, python syntax checks, and requirements sync verification.
+
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell-checks:
+    name: Shell Script Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax Check (bash -n)
+        run: |
+          find . -name "*.sh" -not -path "*/.git/*" -exec bash -n {} +
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+      - name: ShellCheck Lint
+        run: |
+          # Check scripts with common shellcheck rules (exclude SC1090/SC1091 dynamic source warnings)
+          shellcheck -e SC1090,SC1091,SC2164,SC2086 auto.sh apply_hardening.sh deployconf.sh install_bash_config.sh sshconf.sh root_shell.sh selectlib.sh \
+            arch/*.sh debian_ubuntu/*.sh fedora/*.sh
+
+  python-checks:
+    name: Python Lint & Dependencies Sync
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Verify Python Syntax
+        run: |
+          python -m compileall -q scripts python_exploits
+      - name: Verify Requirements Generator
+        run: |
+          python scripts/gen_requirements.py
+          git diff --exit-code requirements.txt || {
+            echo "ERROR: requirements.txt is out of sync with subproject dependencies!"
+            echo "Run 'python scripts/gen_requirements.py' and commit the result."
+            exit 1
+          }
+      - name: Ruff Lint
+        run: |
+          python -m pip install ruff
+          ruff check scripts/
