@@ -85,8 +85,7 @@ def write_requirements(specs):
         fh.write("# Reproducible locked venv: uv sync (uses pyproject.toml + uv.lock)\n")
         fh.write("# Unpinned packages resolve to the latest release; versions are honored.\n")
         fh.write("# (ExploitFarm's server is separate — https://github.com/Pwnzer0tt1/exploitfarm)\n")
-        for line in lines:
-            fh.write(line + "\n")
+        fh.writelines(line + "\n" for line in lines)
 
 
 def write_pyproject(specs):

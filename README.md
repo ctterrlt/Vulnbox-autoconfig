@@ -198,7 +198,7 @@ flowchart TD
 ├── fail2ban_jail.local              # Fail2ban jail configuration (systemd backend, port 22222)
 ├── sysctl_90-no-ping.conf           # Kernel sysctl hardening (disables ICMP echo response)
 ├── extra_keys.pub.example           # Empty, comment-only template for local teammate public keys
-├── VERSION.json                     # Stable release target (1.0.0), source for the README version badge
+├── VERSION.json                     # Stable release target (2.0.0), source for the README version badge
 ├── CHANGELOG.md                     # Version history and unreleased changes
 ├── requirements.txt                 # Auto-aggregated pip-compatible dependency view
 ├── pyproject.toml                   # Auto-generated PEP 621 manifest for uv/pip
@@ -348,7 +348,7 @@ python3 scripts/gen_requirements.py --lock            # re-lock current constrai
 python3 scripts/gen_requirements.py --lock --upgrade  # upgrade locked versions
 ```
 
-The release workflow packages the repository as `.tar.gz` and `.zip` files and creates SHA-256 checksums. A release tag must exactly match the stable version in [`VERSION.json`](VERSION.json) (currently `v1.0.0`); pre-release tags are rejected. Manual workflow runs build artifacts without publishing a release.
+The release workflow packages the repository as `.tar.gz` and `.zip` files and creates SHA-256 checksums. A release tag must exactly match the stable version in [`VERSION.json`](VERSION.json) (currently `v2.0.0`); pre-release tags are rejected. Manual workflow runs build artifacts without publishing a release.
 
 ---
 
