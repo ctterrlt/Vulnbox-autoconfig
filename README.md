@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Purpose: Attack/Defense CTF remote deployment toolkit, operator shell environment, and ExploitFarm exploit arsenal. -->
+<!-- Purpose: Attack/Defense CTF remote deployment toolkit, operator shell environment, and Python exploit collection. -->
 
 # Vulnbox-AutoConfig
 
@@ -8,20 +8,19 @@
 [![CI](https://github.com/ctterrlt/Vulnbox-autoconfig/actions/workflows/ci.yaml/badge.svg)](https://github.com/ctterrlt/Vulnbox-autoconfig/actions/workflows/ci.yaml)
 [![Platforms](https://img.shields.io/badge/platforms-Arch%20%7C%20Debian%20%2F%20Ubuntu%20%7C%20Fedora-informational?style=flat-square)](#requirements)
 [![Shell](https://img.shields.io/badge/shell-zsh%20%7C%20oh--my--zsh-orange?style=flat-square&logo=gnu-bash&logoColor=white)](#installation)
-[![Engine](https://img.shields.io/badge/engine-ExploitFarm%20%2F%20xfarm-red?style=flat-square)](#exploit-arsenal-exploitfarm-integration)
 
 **Vulnbox-AutoConfig** is a deployment toolkit and exploit collection for authorized **Attack/Defense CTF competitions**. It covers two parts of that workflow:
 
 1. **🛠 Vulnbox Setup & Remote Hardening** — Transforms a fresh, minimal, or reset remote shell into a fully configured, hardened operator environment (zsh, Oh-My-Zsh, robust plugins, security aliases, modern editor setups, and root shell parity) with a single command over SSH.
-2. **💉 Exploit Arsenal & ExploitFarm Engine** — Service-agnostic, modular exploits and automated defense proxies built natively for [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and its `xfarm` client, executing against every opposing team tick by tick with automated flag extraction and submission.
+2. **💉 Exploit Arsenal & Automation** — A collection of modular Attack/Defense exploits, configuration helpers, and defensive traffic inspection tools.
 
 ---
 
 ## Status
 
-The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and Fedora, plus exploit projects that integrate with ExploitFarm. CI workflow files provide syntax, dependency-sync, and lint checks; the current state of those checks is shown by the CI badge above.
+The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and Fedora, plus a modular Python exploit collection and a defensive TLS bridge. CI workflow files provide syntax, dependency-sync, and lint checks; the current state of those checks is shown by the CI badge above.
 
-- **Unified Entry Point:** The master orchestrator [`auto.sh`](auto.sh) handles host aliasing, SSH key distribution, distro deployment, ExploitFarm tooling, and local dependency management.
+- **Unified Entry Point:** The master orchestrator [`auto.sh`](auto.sh) handles host aliasing, SSH key distribution, distro deployment, optional Pwnzer0tt1 tools, and local dependency management.
 - **Automated Root Parity:** The opt-in [`root_shell.sh`](root_shell.sh) mirrors Zsh and Bash aliases and selected dotfiles into `/root`; it also copies configured SSH identity files so root can use the same SSH hosts.
 - **Dependency Automation:** Exploit requirements across all subprojects are aggregated automatically into the repo-root [`requirements.txt`](requirements.txt) via [`scripts/gen_requirements.py`](scripts/gen_requirements.py) and staged on commit via [`.githooks/pre-commit`](.githooks/pre-commit).
 - **Execution Guard:** The master [`auto.sh`](auto.sh) stops in detected containers. Direct distro scripts warn and require confirmation before proceeding.
@@ -42,10 +41,10 @@ The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and 
 - **Selective Remote Backups:** Inspects the remote home directory over SSH, allows selective directory archiving (home-relative, tilde, or absolute paths), downloads `backup_from_<IP>.zip` without overwriting (adding a numeric suffix if needed), and optionally initializes local Git repositories with sane `.gitignore` rules.
 
 ### Exploit Arsenal & Automation
-- **ExploitFarm Native Integration:** Standardized exploit skeleton (`HOST = get_host()`, `store = Store()`, `get_ids()`, tick loop) allowing `xfarm` to replicate attacks across all teams simultaneously without hardcoded IPs.
+- **Modular Exploit Projects:** Service-specific attack logic is separated from target settings, with configuration helpers for interactive or environment-based setup.
 - **Decoupled Target Configuration:** Every exploit isolates target specifics (ports, credentials, injection vectors, formats) in a dedicated `module_<project>.py`, configurable interactively via `auto_<project>.sh` or programmatically via `.env`.
 - **Defensive Traffic Decryption (`tls/`):** Long-running defensive TLS termination and inspection bridge that intercepts inbound HTTPS traffic to your vulnbox service, exposes plaintext streams for real-time traffic analysis, and transparently re-encrypts upstream connections.
-- **Pwnzer0tt1 Tooling Orchestrator:** Integrated management for ExploitFarm infrastructure (`exploitfarm`, `digger`, `firegex`) with branch selection (`main` vs `dev`), merge/rebase conflict handling, and non-blocking subshell builds.
+- **Pwnzer0tt1 Tooling Orchestrator:** Optional management for `digger` and `firegex`, with branch selection (`main` vs `dev`), merge/rebase conflict handling, and non-blocking subshell builds.
 
 ---
 
@@ -81,7 +80,7 @@ chmod +x auto.sh
 
 The orchestrator guides you through:
 1. Importing or refreshing Git configuration and aliases into your local `~/.gitconfig`.
-2. Selecting target distribution (**Arch**, **Debian/Ubuntu**, **Fedora**) or installing/updating **ExploitFarm tooling**.
+2. Selecting target distribution (**Arch**, **Debian/Ubuntu**, **Fedora**) or installing/updating **Pwnzer0tt1 tools** (`digger` and `firegex`).
 3. Configuring SSH connectivity, host aliases, and public key deployment.
 4. Selecting payloads to deploy (Neovim, Git aliases, nano, Konsole, TLS bridge, root shell setup, dev repository clone).
 5. Executing remote provisioning and package installation, optionally pulling a selected backup, and printing a deployment summary. Connect to the target separately with its configured SSH alias.
@@ -141,7 +140,7 @@ When launching `./auto.sh`, the interactive deployment pipeline executes the fol
 ```mermaid
 flowchart TD
     A["./auto.sh Entry Point"] --> B["Git Config & Aliases Setup"]
-    B --> C["ExploitFarm Tooling or Distro Selection"]
+    B --> C["Tooling or Distro Selection"]
     C --> D["SSH Target Selection (sshconf.sh)"]
     D --> E["Key Selection & Injection (selectlib.sh)"]
     E --> F["Payload Options Selection (deployconf.sh)"]
@@ -151,7 +150,7 @@ flowchart TD
 ```
 
 1. **Git Configuration Setup:** Prompts whether to import the shared aliases (`gitconfig.conf`) into your local `~/.gitconfig` (all at once via `include.path` or item-by-item via `selectlib.sh`).
-2. **Git Clone Protocol:** Sets preference for `https` or `ssh` (git@) when cloning tooling or dev repositories.
+2. **Git Clone Protocol:** Sets preference for `https` or `ssh` (git@) when cloning tools or dev repositories.
 3. **SSH Target Configuration (`sshconf.sh`):**
    - Offers to reuse an existing host from `~/.ssh/config` (resolved via `ssh -G` to prefill IP, user, and port).
    - Alternatively, prompts for target IP, username, port (default: 22), and a custom host alias, creating an entry in `~/.ssh/config`.
@@ -180,7 +179,7 @@ flowchart TD
 
 ```text
 .
-├── auto.sh                          # Master entry point: Git setup, distro menu, ExploitFarm tooling
+├── auto.sh                          # Master entry point: Git setup, distro menu, optional tool installs
 ├── sshconf.sh                       # SSH target resolution, keygen, alias management, key injection
 ├── deployconf.sh                    # Shared deployment options, backup handling, deployment summary
 ├── root_shell.sh                    # Root parity orchestrator (mirrors user dotfiles and shell to /root)
@@ -240,7 +239,7 @@ flowchart TD
     ├── converting/                  # Encoding/decoding utilities and pcap exfiltration
     ├── tls/                         # Defensive TLS decryption & interception proxy
     ├── examples/                    # Challenge references and templates
-    └── README.md                    # ExploitFarm integration documentation
+    └── README.md                    # Exploit catalog and execution notes
 ```
 
 ---
@@ -266,13 +265,13 @@ flowchart TD
 
 ---
 
-## Exploit Arsenal (ExploitFarm Integration)
+## Exploit Arsenal
 
-Every exploit located under [`python_exploits/`](python_exploits/) adheres to the standard [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) architecture. Exploits decouple attack logic from target infrastructure: the framework dynamically handles target IP dispatching, flag format extraction, and gameserver submissions.
+The projects under [`python_exploits/`](python_exploits/) separate attack logic from target settings. Each project includes a configurator, dependency list, and challenge notes; see the collection README for runtime-specific instructions.
 
 ```text
 <project_folder>/
-├── <project>.py         # Exploit logic (get_host(), Store(), get_ids(), tick loop)
+├── <project>.py         # Exploit logic and attack loop
 ├── module_<project>.py  # Configuration module: resolve("KEY", "default")
 ├── auto_<project>.sh    # Interactive CLI configurator (updates defaults in module)
 ├── requirements.txt     # Python dependencies specific to this exploit
@@ -304,8 +303,7 @@ graph LR
         sshconf["SSH Host & Keys"]
     end
 
-    subgraph AttackServer["Attack Server / Farm Host"]
-        xfarm["ExploitFarm / xfarm"]
+    subgraph AttackServer["Operator PC or Attack Host"]
         exploits["python_exploits/*.py"]
     end
 
@@ -316,12 +314,12 @@ graph LR
     end
 
     LocalOperator -- SSH Deploy --> Vulnbox
-    LocalOperator -- Git Push --> AttackServer
-    AttackServer -- Attack Loop (Every Tick) --> Vulnbox
+    LocalOperator -- Run exploits --> AttackServer
+    AttackServer -- Network requests --> Vulnbox
 ```
 
 - **Remote Deployment Scripts (`auto.sh`, `*_auto.sh`):** Run these from the operator workstation. The master script stops in detected containers; direct distro deployments warn and ask for confirmation. The `zshinstall_*.sh` scripts are the separate local installers and run on the host they configure.
-- **Exploit Arsenal (`python_exploits/`):** Must be executed on the machine hosting ExploitFarm (your operator workstation or dedicated attack VM), **never on the target vulnbox**. Running exploits on a vulnbox will saturate resources and leak offensive payloads to competitors.
+- **Exploit Arsenal (`python_exploits/`):** Execute on your operator workstation or dedicated attack host, **never on the target vulnbox**. Running exploits on a vulnbox will saturate resources and leak offensive payloads to competitors.
 - **TLS Interception Bridge (`python_exploits/tls`):** The **only** component intended to execute on the remote vulnbox. It sits in front of your service, terminates TLS locally, logs plaintext requests, and re-encrypts traffic to the backend service.
 
 ---
@@ -393,7 +391,6 @@ If you discover a security vulnerability or credential leak within this reposito
 
 ## Credits & Acknowledgments
 
-- [**ExploitFarm**](https://github.com/Pwnzer0tt1/exploitfarm) and `xfarm` by [**Pwnzer0tt1**](https://github.com/Pwnzer0tt1) — The orchestration engine powering the exploit arsenal.
 - [**Oh-My-Zsh**](https://github.com/ohmyzsh/ohmyzsh) — Community-driven framework for Zsh.
 - [**zsh-syntax-highlighting**](https://github.com/zsh-users/zsh-syntax-highlighting) and [**zsh-autosuggestions**](https://github.com/zsh-users/zsh-autosuggestions) — Essential shell usability enhancements.
 

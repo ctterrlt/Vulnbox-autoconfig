@@ -130,6 +130,8 @@ if [[ "$_scp_legacy" == [nN]* ]]; then
     SCP_OPTS=""
     echo "[OK] Using modern SFTP-based scp."
 else
+    # Consumed by the distro deployment scripts sourced after this setup.
+    # shellcheck disable=SC2034
     SCP_OPTS="-O"
     echo "[OK] Using legacy scp protocol (-O)."
 fi

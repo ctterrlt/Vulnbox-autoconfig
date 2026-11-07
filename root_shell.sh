@@ -123,6 +123,8 @@ if [ -f "$CALLER_HOME/.bashrc_vulnbox" ]; then
         if ! grep -Fq "$_bash_marker" /root/.bashrc; then
             _bashrc_tmp="$(mktemp /root/.bashrc.XXXXXX)"
             {
+                # This expression is written literally so root's shell expands it when sourcing .bashrc.
+                # shellcheck disable=SC2016
                 printf '%s\n' \
                     "$_bash_marker" \
                     '[ -r "$HOME/.bashrc_vulnbox" ] && . "$HOME/.bashrc_vulnbox"' \

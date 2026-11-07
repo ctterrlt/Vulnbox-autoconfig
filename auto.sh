@@ -99,11 +99,11 @@ else
 fi
 
 # ── Git clone protocol preference ─────────────────────────────────────────────
-# Ask once: applies to both local Pwnzer0tt1 clones and the dev-repo clone on
+# Ask once: applies to local Pwnzer0tt1 tool clones and the dev-repo clone on
 # the target (via deployconf.sh, which sources this env var).
 GIT_CLONE_PROTOCOL="${GIT_CLONE_PROTOCOL:-https}"
 echo ""
-read -rp "Protocol for cloning onto the vulnbox (and for Pwnzer0tt1 clones)? ([S]SH / [H]TTPS) [H]: " _clone_proto
+read -rp "Protocol for cloning onto the vulnbox (and for Pwnzer0tt1 tool clones)? ([S]SH / [H]TTPS) [H]: " _clone_proto
 case "${_clone_proto:-}" in
     [sS]*) GIT_CLONE_PROTOCOL="ssh"; echo "  -> using SSH for git clones" ;;
     *)    GIT_CLONE_PROTOCOL="https"; echo "  -> using HTTPS for git clones" ;;
@@ -116,7 +116,7 @@ echo "    VULNBOX MASTER DEPLOYMENT CENTER    "
 echo "========================================"
 
 PS3="Select an option: "
-options=("Arch" "Debian/Ubuntu" "Fedora" "Install/update ExploitFarm tooling (exploitfarm/digger/firegex)" "Quit")
+options=("Arch" "Debian/Ubuntu" "Fedora" "Install/update Pwnzer0tt1 tools (digger/firegex)" "Quit")
 
 _menu_first=1
 select opt in "${options[@]}"; do
@@ -141,7 +141,7 @@ select opt in "${options[@]}"; do
             "$SCRIPT_DIR/fedora/fedora_auto.sh"
             break
             ;;
-        "Install/update ExploitFarm tooling (exploitfarm/digger/firegex)")
+        "Install/update Pwnzer0tt1 tools (digger/firegex)")
             # Robust installer — never aborts auto.sh even if it errors.
             # Run in a subshell with errexit disabled so isolated failures are safe.
             (
@@ -156,7 +156,6 @@ select opt in "${options[@]}"; do
                         echo "https://github.com/${repo}"
                     fi
                 }
-                URL_exploitfarm=$(github_url "Pwnzer0tt1/exploitfarm")
                 URL_digger=$(github_url "Pwnzer0tt1/digger")
                 URL_firegex=$(github_url "Pwnzer0tt1/firegex")
 
@@ -257,7 +256,8 @@ select opt in "${options[@]}"; do
                 }
 
                 build_repo() {
-                    local name="$1" dest="$PWNZER_DIR/$name"
+                    local name="$1"
+                    local dest="$PWNZER_DIR/$name"
                     [ -d "$dest" ] || return 0
                     echo "[*] Best-effort build for $name (failures are non-fatal)..."
                     if [ -f "$dest/docker-compose.yml" ] || [ -f "$dest/compose.yml" ] || [ -f "$dest/docker-compose.yaml" ]; then
@@ -280,12 +280,11 @@ select opt in "${options[@]}"; do
                     ensure_repo "$name" "$url" "$branch"
                     read -rp "    Build $name now? (heavy — recompiles from source) [y/N]: " _b || true
                     [[ "${_b:-}" == [yY]* ]] && build_repo "$name"
-                    [ "$name" = "exploitfarm" ] && echo "    Start ExploitFarm with:  cd '$PWNZER_DIR/exploitfarm' && python3 run.py start --prebuilt"
                     return 0
                 }
 
                 echo "==================================================================="
-                echo "  Pwnzer0tt1 ExploitFarm stack — install / update"
+                echo "  Pwnzer0tt1 tools — install / update"
                 echo "==================================================================="
                 echo "Repos live under: $PWNZER_DIR    (override with  PWNZER_DIR=...)"
                 echo "Note: cloning or pulling recompiles from source — digger is large and slow."
@@ -307,18 +306,16 @@ select opt in "${options[@]}"; do
 
                 while true; do
                     echo
-                    echo "  1) exploitfarm    2) digger    3) firegex    4) all    5) back"
+                    echo "  1) digger    2) firegex    3) both    4) back"
                     echo "  Enter number or name"
-                    read -rp "Install/update which? [5]: " _c || true
-                    case "${_c:-5}" in
-                        1|[eE]*) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE" ;;
-                        2|[dD]*) install_tool digger      "$URL_digger"      "$BRANCH_MODE" ;;
-                        3|[fF]*) install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
-                        4|[aA]*) install_tool exploitfarm "$URL_exploitfarm" "$BRANCH_MODE"
-                                install_tool digger      "$URL_digger"      "$BRANCH_MODE"
+                    read -rp "Install/update which? [4]: " _c || true
+                    case "${_c:-4}" in
+                        1|[dD]*) install_tool digger  "$URL_digger"  "$BRANCH_MODE" ;;
+                        2|[fF]*) install_tool firegex "$URL_firegex" "$BRANCH_MODE" ;;
+                        3|[bB]*) install_tool digger  "$URL_digger"  "$BRANCH_MODE"
                                 install_tool firegex     "$URL_firegex"     "$BRANCH_MODE" ;;
-                        5|[bBqQ]*) break ;;
-                        *) echo "  invalid choice — pick 1-5 or enter the name." ;;
+                        4|[qQ]*) break ;;
+                        *) echo "  invalid choice — pick 1-4 or enter the name." ;;
                     esac
                 done
             ) || true

@@ -76,7 +76,7 @@ if [[ -f /tmp/nftables.conf ]]; then
     backup_file "$nft_dest"
     nft_backup="$BACKUP_PATH"
     nft_runtime_backup=$(mktemp)
-    if sudo nft list table inet vulnbox_autoconfig > "$nft_runtime_backup" 2>/dev/null; then
+    if sudo nft list table inet vulnbox_autoconfig 2>/dev/null | tee "$nft_runtime_backup" >/dev/null; then
         had_nft_runtime_table=yes
     else
         had_nft_runtime_table=no

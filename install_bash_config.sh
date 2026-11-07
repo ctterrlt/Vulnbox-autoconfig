@@ -21,6 +21,8 @@ start_marker="# >>> Vulnbox-AutoConfig Bash aliases >>>"
 if ! grep -Fq "$start_marker" "$HOME/.bashrc"; then
     bashrc_tmp=$(mktemp "$HOME/.bashrc.XXXXXX")
     {
+        # This expression is written literally so the target shell expands it when sourcing .bashrc.
+        # shellcheck disable=SC2016
         printf '%s\n' \
             "$start_marker" \
             '[ -r "$HOME/.bashrc_vulnbox" ] && . "$HOME/.bashrc_vulnbox"' \

@@ -13,9 +13,9 @@
 #   DO_BACKUP, BACKUP_PATHS, BACKUP_DEST
 
 # ── (LOCAL) PYTHON EXPLOIT DEPENDENCIES ──────────────────────────────────────
-# The xfarm exploits run on THIS operator PC (never the vulnbox). Offer to install
-# all their Python deps here from the aggregated root requirements.txt — kept in
-# sync from every sub-requirements.txt by scripts/gen_requirements.py.
+# Offer to install the Python exploit dependencies on THIS operator PC (never the
+# vulnbox) from the aggregated root requirements.txt, kept in sync from every
+# sub-requirements.txt by scripts/gen_requirements.py.
 ROOT_REQ="$DIR/../requirements.txt"
 read -rp "Install all Python exploit deps from requirements.txt on THIS machine? (y/N) " INSTALL_REQS
 if [[ ${INSTALL_REQS:-} == [yY]* ]]; then
@@ -123,10 +123,11 @@ if [[ $DO_BACKUP == [yY]* ]]; then
         else
             # Normalize bare names to ~/name and show where each resolves on the target.
             _norm=""
+            _literal_tilde='~'
             for _p in $BACKUP_PATHS; do
                 case "$_p" in
-                    /*|"~"|"~/"*) _q="$_p" ;;
-                    *)            _q="~/$_p" ;;
+                    /*|"$_literal_tilde"|"$_literal_tilde/"*) _q="$_p" ;;
+                    *)            _q="${_literal_tilde}/$_p" ;;
                 esac
                 _norm+="${_norm:+ }$_q"
             done
@@ -144,9 +145,10 @@ if [[ $DO_BACKUP == [yY]* ]]; then
         echo
         read -rp "Where should the pulled backup be saved locally? [${HOME}]: " BACKUP_DEST
         BACKUP_DEST="${BACKUP_DEST:-$HOME}"
+        _literal_tilde='~'
         case "$BACKUP_DEST" in
-            "~")   BACKUP_DEST="$HOME" ;;
-            "~/"*) BACKUP_DEST="$HOME/${BACKUP_DEST#\~/}" ;;
+            "$_literal_tilde")       BACKUP_DEST="$HOME" ;;
+            "$_literal_tilde/"*)     BACKUP_DEST="${HOME}/${BACKUP_DEST:2}" ;;
         esac
         mkdir -p "$BACKUP_DEST"
     fi
@@ -164,6 +166,8 @@ EXTRACT_DEST=""
 DO_GIT_INIT_LOCAL=""
 if [[ $DO_BACKUP == y ]]; then
     echo
+    # The distro deployment scripts consume this value when building the remote payload.
+    # shellcheck disable=SC2034
     read -rp "Git init the selected folders on the TARGET before zipping? (y/N) " DO_GIT_INIT_REMOTE
     echo
     read -rp "Extract the pulled backup zip on THIS machine after download? (y/N) " DO_EXTRACT
@@ -227,7 +231,8 @@ post_backup_processing() {
         for _item in "$EXTRACTED_DIR"/*/; do
             [ -d "$_item" ] || continue
             _item="${_item%/}"
-            local _name="$(basename "$_item")"
+            local _name
+            _name="$(basename "$_item")"
             if [ -d "$_item/.git" ]; then
                 echo "  -> $_name already has .git (skipping init)"
             else
