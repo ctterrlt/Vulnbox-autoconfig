@@ -10,12 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Auto-generated root `pyproject.toml` and a committed `uv.lock`, so exploit dependencies can be installed reproducibly with `uv sync` and upgraded with `uv lock --upgrade` instead of pip alone.
+- Python dependency install options now prefer `uv`: a fast user-site mode (`~/.local`, also covered by the `uvtotal` shell shortcut) or a locked project `.venv`.
 - Bash alias configurations for Arch, Debian/Ubuntu, and Fedora, derived from the matching Zsh aliases and installed without replacing an existing regular `.bashrc`.
 - Bash configuration deployment to full installs, config refreshes, standalone host installs, and the optional root parity setup.
 - SPDX license identifiers across project source and configuration files, plus the package license metadata required for JSON files.
 - A CI status badge, a Development section, data handling notes, and a roadmap in the root README.
 
 ### Changed
+- The local Python dependency prompt uses `uv` when available and falls back to pip; unpinned requirements resolve to the latest release while explicit version specifiers are honored.
+- `scripts/gen_requirements.py` now emits `requirements.txt` and `pyproject.toml`, supports `--lock` / `--lock --upgrade`, and normalizes `pkg@latest` / `pkg==latest` to an unpinned latest-release dependency.
+- The pre-commit hook stages both root dependency manifests, and CI verifies `pyproject.toml` plus `uv.lock` freshness.
 - Hardened nftables deployment now uses a dedicated table and merges its managed rules into the existing persistent config. SSH and Fail2ban templates include the active connection port alongside the default port 22222.
 - Existing `.zshrc` files are backed up before the generated distro config replaces them; Bash aliases are loaded from a separate file.
 - Arch provisioning now uses `pacman` and no longer bootstraps a temporary AUR build account. Optional `yay` aliases remain available in the Arch shell configs when yay is already installed.
@@ -24,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synced the latest local shell updates into all distro Zsh and Bash templates: conditional Android SDK PATH support, safer `uvtotal` error/empty handling, and direct nftables config reloads using each distro's service config path.
 - Updated `uvinst`, `uvupdate`, and `uvtotal` to resolve one `python3` executable and use it consistently for pip discovery and `uv` installs; the install helpers now accept package arguments.
 - Updated `sshrc` to prefer the local `99-custom-ssh.conf` and fall back to the project's deployed `00-custom-ssh.conf`.
+- Made the `sshrc` helper alias-safe across all distro Zsh and Bash configs by clearing a conflicting alias before defining the function.
+- Made bare `zsh` and `bash` reload their shell configs while forwarding invocations with arguments to the real shell commands in all distro configs.
 - Replaced the tracked personal public-key list with a comment-only `extra_keys.pub.example`; first-run seeding creates the ignored local `extra_keys.pub` file for user-managed keys.
 - Centralized key-file seeding in `sshconf.sh`, so direct distro deployments and the master menu both create the local key file.
 - Added SSH-port range validation and port-aware config refresh commands.

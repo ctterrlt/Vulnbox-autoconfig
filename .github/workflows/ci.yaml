@@ -52,11 +52,16 @@ jobs:
       - name: Verify Requirements Generator
         run: |
           python scripts/gen_requirements.py
-          git diff --exit-code requirements.txt || {
-            echo "ERROR: requirements.txt is out of sync with subproject dependencies!"
+          git diff --exit-code requirements.txt pyproject.toml || {
+            echo "ERROR: root dependency manifests are out of sync with subproject dependencies!"
             echo "Run 'python scripts/gen_requirements.py' and commit the result."
             exit 1
           }
+      - name: Verify uv Lockfile
+        if: matrix.python-version == '3.12'
+        run: |
+          python -m pip install uv
+          uv lock --check
       - name: Ruff Lint
         run: |
           python -m pip install ruff

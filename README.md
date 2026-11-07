@@ -22,7 +22,7 @@ The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and 
 
 - **Unified Entry Point:** The master orchestrator [`auto.sh`](auto.sh) handles host aliasing, SSH key distribution, distro deployment, optional Pwnzer0tt1 tools, and local dependency management.
 - **Automated Root Parity:** The opt-in [`root_shell.sh`](root_shell.sh) mirrors Zsh and Bash aliases and selected dotfiles into `/root`; it also copies configured SSH identity files so root can use the same SSH hosts.
-- **Dependency Automation:** Exploit requirements across all subprojects are aggregated automatically into the repo-root [`requirements.txt`](requirements.txt) via [`scripts/gen_requirements.py`](scripts/gen_requirements.py) and staged on commit via [`.githooks/pre-commit`](.githooks/pre-commit).
+- **Dependency Automation:** Exploit requirements across all subprojects are aggregated automatically into the repo-root [`requirements.txt`](requirements.txt) and [`pyproject.toml`](pyproject.toml) via [`scripts/gen_requirements.py`](scripts/gen_requirements.py) and staged on commit via [`.githooks/pre-commit`](.githooks/pre-commit). Unpinned entries resolve to the latest release; pinned specs are honored. [`uv.lock`](uv.lock) provides a reproducible resolution for `uv sync`.
 - **Execution Guard:** The master [`auto.sh`](auto.sh) stops in detected containers. Direct distro scripts warn and require confirmation before proceeding.
 
 ---
@@ -37,10 +37,12 @@ The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and 
 - **Defensive & Diagnostic Aliases:** Out-of-the-box aliases for rapid triage: network listening (`ss`), sniffing (`tcpdump`), container inspection (`docker ps`, `docker compose logs`), package management (`pip`, `uv`), and security service control.
 - **Minimal Distro Support (antiX, Alpine, Minimal VMs):** The deployed `.zshrc` dynamically prepends `/usr/local/sbin`, `/usr/sbin`, and `/sbin` to `$PATH`, ensuring administrative utilities (`ip`, `ss`, `iptables`, `fdisk`) function seamlessly when sbin is excluded from default user paths.
 - **Root Shell Parity:** The opt-in target setup sets zsh as root’s login shell, provisions Oh-My-Zsh, shares Zsh and Bash aliases, and copies selected SSH identity files.
-- **Bash Alias Support:** Each distro has a Bash alias file derived from its Zsh aliases. Deployment installs it as `~/.bashrc_vulnbox` and adds a managed source block to an existing regular `~/.bashrc`.
+- **Shell Reload Shortcuts:** Bare `zsh` and `bash` reload their respective config files; adding arguments runs the normal shell command, including commands combined with shell operators. Each distro's Bash aliases are installed as `~/.bashrc_vulnbox` and sourced from an existing regular `~/.bashrc`.
+- **Bash Alias Support:** The `sshrc` helper safely clears a conflicting alias, prefers `99-custom-ssh.conf`, and falls back to the deployed `00-custom-ssh.conf`.
 - **Selective Remote Backups:** Inspects the remote home directory over SSH, allows selective directory archiving (home-relative, tilde, or absolute paths), downloads `backup_from_<IP>.zip` without overwriting (adding a numeric suffix if needed), and optionally initializes local Git repositories with sane `.gitignore` rules.
 
 ### Exploit Arsenal & Automation
+- **Fast uv Dependency Management:** The local dependency prompt prefers `uv` over pip. Install into `~/.local` to keep packages covered by the `uvtotal` shell shortcut, or use the generated `pyproject.toml` + `uv.lock` with `uv sync` for a reproducible `.venv`. Packages without a version spec install the latest release; explicit pins are respected.
 - **Modular Exploit Projects:** Service-specific attack logic is separated from target settings, with configuration helpers for interactive or environment-based setup.
 - **Decoupled Target Configuration:** Every exploit isolates target specifics (ports, credentials, injection vectors, formats) in a dedicated `module_<project>.py`, configurable interactively via `auto_<project>.sh` or programmatically via `.env`.
 - **Defensive Traffic Decryption (`tls/`):** Long-running defensive TLS termination and inspection bridge that intercepts inbound HTTPS traffic to your vulnbox service, exposes plaintext streams for real-time traffic analysis, and transparently re-encrypts upstream connections.
@@ -63,7 +65,7 @@ The repository contains deployment workflows for Arch Linux, Debian/Ubuntu, and 
 
 - **Container Safety Guard:** The master script stops in detected container environments. Direct distro deployment scripts display a warning and ask whether to continue.
 - **SCP Protocol Compatibility:** Prompts for legacy SCP (`-O`) or modern SFTP transport. Legacy `-O` ensures seamless file transfers on remote hosts lacking SFTP subsystems.
-- **Python Package Isolation:** Exploit dependencies support both system `--break-system-packages`, user prefixes, and local virtual environments.
+- **Python Package Isolation:** Exploit dependencies support `uv` user-site installs (`~/.local`, also covered by `uvtotal`), locked project virtual environments (`uv sync`), pip `--break-system-packages`, user prefixes, and local virtual environments. Unpinned requirements resolve to the latest release; version specifiers are honored.
 
 ---
 
@@ -157,7 +159,7 @@ flowchart TD
 4. **Transport Mode:** Chooses between legacy SCP (`-O`, default) and modern SFTP.
 5. **Key Deployment:** Interactive selector for `id_ed25519.pub` and optional team keys from the local, gitignored `extra_keys.pub` (created empty from `extra_keys.pub.example` on first run; add intended public keys locally). Selected keys are added to `~/.ssh/authorized_keys` with SSH directory and file permissions set to `0700` and `0600`.
 6. **Payload Options (`deployconf.sh`):**
-   - **Local Python deps:** Option to install root `requirements.txt` on the operator PC.
+   - **Local Python deps:** Option to install/update root `requirements.txt` on the operator PC. When `uv` is available it is used instead of pip: choose the `~/.local` user site (fast, also maintained by `uvtotal`) or a reproducible project `.venv` from `pyproject.toml` + `uv.lock` (`uv sync`).
    - **Neovim (`nvimconfig.lua`):** Provisions `~/.config/nvim/init.lua` and ensures `neovim` is installed.
    - **Git Aliases (`gitconfig.conf`):** Provisions `~/.gitconfig_vulnbox` on the target and links it via `include.path`.
    - **TLS Bridge:** Ships `python_exploits/tls` to `~/tls_bridge` on the target.
@@ -198,12 +200,14 @@ flowchart TD
 ├── extra_keys.pub.example           # Empty, comment-only template for local teammate public keys
 ├── VERSION.json                     # Stable release target (1.0.0), source for the README version badge
 ├── CHANGELOG.md                     # Version history and unreleased changes
-├── requirements.txt                 # Auto-aggregated union of all exploit dependencies
+├── requirements.txt                 # Auto-aggregated pip-compatible dependency view
+├── pyproject.toml                   # Auto-generated PEP 621 manifest for uv/pip
+├── uv.lock                          # Committed uv resolution (uv sync / uv lock --upgrade)
 │
 ├── scripts/
-│   └── gen_requirements.py         # Aggregates subproject requirements.txt into root
+│   └── gen_requirements.py         # Aggregates requirements into root manifests + optional lock
 ├── .githooks/
-│   └── pre-commit                   # Git hook keeping root requirements.txt in sync
+│   └── pre-commit                   # Git hook keeping requirements.txt + pyproject.toml in sync
 ├── .github/workflows/
 │   ├── ci.yaml                      # Syntax, dependency-sync, and lint jobs
 │   └── release.yaml                 # Tag-based archive and GitHub Release workflow
@@ -248,8 +252,8 @@ flowchart TD
 
 | Component | Target Location | Repository Source | Behavior |
 | :--- | :--- | :--- | :--- |
-| **Shell Configuration** | `~/.zshrc` | `<distro>/zshconfig_<distro>.conf` | Sourced at login, provides plugins, aliases, prompts |
-| **Bash Aliases** | `~/.bashrc_vulnbox`, sourced from `~/.bashrc` | `<distro>/bashconfig_<distro>.conf` and `install_bash_config.sh` | Adds a managed block without replacing an existing regular `.bashrc` |
+| **Shell Configuration** | `~/.zshrc` | `<distro>/zshconfig_<distro>.conf` | Sourced at login; bare `zsh` reloads it, while arguments run the normal Zsh command |
+| **Bash Aliases** | `~/.bashrc_vulnbox`, sourced from `~/.bashrc` | `<distro>/bashconfig_<distro>.conf` and `install_bash_config.sh` | Bare `bash` reloads `~/.bashrc`; arguments run the normal Bash command |
 | **Neovim Configuration** | `~/.config/nvim/init.lua` | `nvimconfig.lua` | Sane defaults, clipboard bindings, line numbering |
 | **Git Aliases** | `~/.gitconfig_vulnbox` | `gitconfig.conf` | Linked via `include.path` in `~/.gitconfig` |
 | **nano Editor** | `~/.nanorc` | `nanorc` | Tab-to-space, syntax highlighting, constant cursor show |
@@ -261,7 +265,7 @@ flowchart TD
 | **Kernel ICMP Suppression**| `/etc/sysctl.d/90-no-ping.conf` | `sysctl_90-no-ping.conf` | Drops ICMP ping echo requests (`icmp_echo_ignore_all = 1`) |
 | **SSH Target Setup** | `~/.ssh/config` | Generated by `sshconf.sh` | Host aliases, ports, keys, user mapping |
 | **Root Shell Mirror** | `/root/.*` | Applied by `root_shell.sh` | Shares Zsh/Bash aliases, symlinks selected dotfiles, copies SSH identities |
-| **Exploit Dependencies**| Local / Virtualenv | Subproject `requirements.txt` | Aggregated automatically to root `requirements.txt` |
+| **Exploit Dependencies**| Local / Virtualenv | Subproject `requirements.txt` | Aggregated automatically to root `requirements.txt` + `pyproject.toml`; `uv.lock` pins a reproducible `uv sync` environment |
 
 ---
 
@@ -334,6 +338,14 @@ Run the corresponding local checks from the repository root:
 find . -name '*.sh' -not -path '*/.git/*' -exec bash -n {} +
 python3 -m compileall -q scripts python_exploits
 python3 scripts/gen_requirements.py
+uv lock --check              # verify uv.lock matches pyproject.toml
+```
+
+Refresh the lock after changing dependencies (network required):
+
+```bash
+python3 scripts/gen_requirements.py --lock            # re-lock current constraints
+python3 scripts/gen_requirements.py --lock --upgrade  # upgrade locked versions
 ```
 
 The release workflow packages the repository as `.tar.gz` and `.zip` files and creates SHA-256 checksums. A release tag must exactly match the stable version in [`VERSION.json`](VERSION.json) (currently `v1.0.0`); pre-release tags are rejected. Manual workflow runs build artifacts without publishing a release.

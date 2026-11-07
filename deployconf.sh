@@ -13,19 +13,77 @@
 #   DO_BACKUP, BACKUP_PATHS, BACKUP_DEST
 
 # ── (LOCAL) PYTHON EXPLOIT DEPENDENCIES ──────────────────────────────────────
-# Offer to install the Python exploit dependencies on THIS operator PC (never the
-# vulnbox) from the aggregated root requirements.txt, kept in sync from every
-# sub-requirements.txt by scripts/gen_requirements.py.
+# Offer to install/update the Python exploit dependencies on THIS operator PC
+# (never the vulnbox). requirements.txt is the pip-compatible view; pyproject.toml
+# plus uv.lock let uv resolve, update, and reproduce the same dependency set.
 ROOT_REQ="$DIR/../requirements.txt"
-read -rp "Install all Python exploit deps from requirements.txt on THIS machine? (y/N) " INSTALL_REQS
+ROOT_PYPROJECT="$DIR/../pyproject.toml"
+
+_vulnbox_pip_user_install() {
+    local req="$1"
+    python3 -m pip install --user --break-system-packages -r "$req" \
+      || python3 -m pip install -r "$req"
+}
+
+_vulnbox_uv_user_install() {
+    local req="$1" python_bin
+    python_bin="$(command -v python3)" || return 1
+    uv pip install --python "$python_bin" --prefix "$HOME/.local" --upgrade -r "$req"
+}
+
+read -rp "Install/update all Python exploit deps from requirements.txt on THIS machine? (y/N) " INSTALL_REQS
 if [[ ${INSTALL_REQS:-} == [yY]* ]]; then
-    if [ -f "$ROOT_REQ" ]; then
-        echo "  Installing $ROOT_REQ locally (pip)..."
-        python3 -m pip install -r "$ROOT_REQ" \
-          || python3 -m pip install --user --break-system-packages -r "$ROOT_REQ" \
-          || echo "  (pip failed — install manually, or use a venv: python3 -m venv .venv)"
-    else
+    if [ ! -f "$ROOT_REQ" ]; then
         echo "  $ROOT_REQ not found — run ./auto.sh from the repo root to generate it."
+    elif ! command -v python3 >/dev/null 2>&1; then
+        echo "  python3 not found — skipping Python deps."
+    else
+        echo "  Unpinned entries resolve to the latest release; version specs are honored."
+        if command -v uv >/dev/null 2>&1; then
+            echo "  uv detected. Install mode:"
+            echo "    1) user site ~/.local (fast; also kept updated by the 'uvtotal' zsh shortcut) [default]"
+            echo "    2) project .venv from pyproject.toml + uv.lock (reproducible; run exploits with 'uv run ...')"
+            read -rp "  Choose [1]: " _dep_mode
+            case "${_dep_mode:-1}" in
+                2|[vV]*)
+                    if [ -f "$ROOT_PYPROJECT" ]; then
+                        echo "  Installing the locked project environment with uv..."
+                        if ( cd "$DIR/.." && uv sync --locked ); then
+                            echo "  -> .venv ready. Run exploits with: uv run python <script.py>"
+                        else
+                            echo "  [warn] uv.lock is missing/stale — refreshing it, then retrying..."
+                            if ( cd "$DIR/.." && uv lock && uv sync --locked ); then
+                                echo "  -> .venv ready (uv.lock refreshed)."
+                            else
+                                echo "  [warn] uv project sync failed — falling back to user site."
+                                _vulnbox_uv_user_install "$ROOT_REQ" \
+                                  || _vulnbox_pip_user_install "$ROOT_REQ" \
+                                  || echo "  (install failed — see the messages above.)"
+                            fi
+                        fi
+                    else
+                        echo "  [warn] $ROOT_PYPROJECT not found — falling back to user site."
+                        _vulnbox_uv_user_install "$ROOT_REQ" \
+                          || _vulnbox_pip_user_install "$ROOT_REQ" \
+                          || echo "  (install failed — see the messages above.)"
+                    fi
+                    ;;
+                *)
+                    echo "  Installing/updating user-site packages with uv..."
+                    if _vulnbox_uv_user_install "$ROOT_REQ"; then
+                        echo "  -> done. 'uvtotal' will keep these packages updated."
+                    else
+                        echo "  [warn] uv install failed — retrying with pip..."
+                        _vulnbox_pip_user_install "$ROOT_REQ" \
+                          || echo "  (pip failed — install manually, or use a venv: python3 -m venv .venv)"
+                    fi
+                    ;;
+            esac
+        else
+            echo "  uv not found — using pip (slow). Install uv to use the fast path."
+            _vulnbox_pip_user_install "$ROOT_REQ" \
+              || echo "  (pip failed — install manually, or use a venv: python3 -m venv .venv)"
+        fi
     fi
 fi
 

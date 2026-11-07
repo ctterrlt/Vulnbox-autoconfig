@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# pre-commit — keep the repo-root requirements.txt in sync with every
+# pre-commit — keep the repo-root Python dependency manifests in sync with every
 # */requirements.txt. Whenever a commit touches any sub-requirements.txt (or
-# anything else), regenerate the aggregated root file and stage it so it never
-# drifts. Wired in via:  git config core.hooksPath .githooks  (auto.sh does this).
+# anything else), regenerate the aggregated root files and stage them so they
+# never drift. Wired in via:  git config core.hooksPath .githooks  (auto.sh does this).
+#
+# requirements.txt and pyproject.toml are cheap to rebuild. uv.lock is refreshed
+# explicitly (needs network):  python3 scripts/gen_requirements.py --lock [--upgrade]
 #
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 if [ -f "$ROOT/scripts/gen_requirements.py" ]; then
     python3 "$ROOT/scripts/gen_requirements.py"
-    git add "$ROOT/requirements.txt"
+    git add "$ROOT/requirements.txt" "$ROOT/pyproject.toml"
 fi

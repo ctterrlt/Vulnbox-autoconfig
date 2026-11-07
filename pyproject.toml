@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# AUTO-GENERATED — do not edit by hand.
+# Generated from every subproject requirements.txt by scripts/gen_requirements.py.
+# Unpinned requirements resolve to the latest release; version specs are honored.
+# Refresh the lockfile: python3 scripts/gen_requirements.py --lock --upgrade
+# Reproducible install:  uv sync
+
+[project]
+name = "vulnbox-autoconfig"
+# The repo release version lives in VERSION.json. uv only needs a valid
+# project version here; keep it stable so the lock changes only with deps.
+version = "0.0.0"
+description = "Python exploit dependencies for the Vulnbox-AutoConfig toolkit."
+requires-python = ">=3.10"
+dependencies = [
+    "cryptography",
+    "lxml",
+    "pwntools",
+    "pycryptodome",
+    "requests",
+    "sympy",
+    "xfarm",
+]
+
+[tool.uv]
+# This repo ships scripts, not an importable Python package.
+package = false

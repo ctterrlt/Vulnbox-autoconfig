@@ -20,9 +20,10 @@ fi
 # ── Ensure all scripts are executable ─────────────────────────────────────────
 find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \;
 
-# ── Keep the aggregated root requirements.txt fresh + wire its auto-update hook ─
-# scripts/gen_requirements.py rebuilds requirements.txt as the union of every
-# sub-requirements.txt; the .githooks/pre-commit hook reruns it on each commit.
+# ── Keep the aggregated root dependencies fresh + wire their auto-update hook ──
+# scripts/gen_requirements.py rebuilds requirements.txt and pyproject.toml as the
+# union of every sub-requirements.txt; the .githooks/pre-commit hook reruns it on
+# each commit. uv.lock is refreshed explicitly with --lock (needs network).
 if git -C "$SCRIPT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
     git -C "$SCRIPT_DIR" config core.hooksPath .githooks 2>/dev/null || true
 fi
@@ -265,8 +266,13 @@ select opt in "${options[@]}"; do
                     elif [ -f "$dest/Makefile" ]; then
                         ( cd "$dest" && make ) 2>&1 | sed 's/^/    /' || true
                     elif [ -f "$dest/requirements.txt" ]; then
-                        python3 -m pip install -r "$dest/requirements.txt" 2>/dev/null \
-                          || python3 -m pip install --user --break-system-packages -r "$dest/requirements.txt" 2>/dev/null || true
+                        if command -v uv >/dev/null 2>&1; then
+                            uv pip install --python "$(command -v python3)" --prefix "$HOME/.local" -r "$dest/requirements.txt" 2>/dev/null \
+                              || python3 -m pip install --user --break-system-packages -r "$dest/requirements.txt" 2>/dev/null || true
+                        else
+                            python3 -m pip install -r "$dest/requirements.txt" 2>/dev/null \
+                              || python3 -m pip install --user --break-system-packages -r "$dest/requirements.txt" 2>/dev/null || true
+                        fi
                     else
                         echo "    (no known build file detected — see $dest/README for build/run steps.)"
                     fi
@@ -343,7 +349,7 @@ if [[ -f /tmp/.vulnbox_target ]]; then
     stay_logged=${stay_logged:-Y}
     if [[ "$stay_logged" == [yY]* ]]; then
         echo -e "\n=== LOGGING IN ==="
-        echo "(reloading zsh config via 'zsh' alias = source ~/.zshrc)"
+        echo "(bare 'zsh' reloads ~/.zshrc; arguments run the normal zsh command)"
         ssh -p "$TARGET_PORT" -t "${TARGET_USER}@${TARGET_IP}" "cd ~ && exec zsh -c 'source ~/.zshrc && exec zsh -i'"
     else
         echo "Returned to local shell."
